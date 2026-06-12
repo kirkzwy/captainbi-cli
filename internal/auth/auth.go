@@ -1,0 +1,78 @@
+package auth
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/kirkzwy/captainbi-cli/internal/core"
+)
+
+type TokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+	Data        struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int    `json:"expires_in"`
+	} `json:"data"`
+}
+
+func GetToken(ctx context.Context, cfg *core.Config, force bool) (string, error) {
+	if !force && cfg.AccessToken != "" && time.Until(cfg.TokenExpiry) > time.Minute {
+		return cfg.AccessToken, nil
+	}
+	secret, err := core.LoadClientSecret(cfg)
+	if err != nil {
+		return "", err
+	}
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", cfg.ClientID)
+	form.Set("client_secret", secret)
+	endpoint := strings.TrimRight(cfg.BaseURL, "/") + "/oauth2/token"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("content-type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return "", errors.New("token request failed")
+	}
+	var tr TokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tr); err != nil {
+		return "", err
+	}
+	token := tr.AccessToken
+	tokenType := tr.TokenType
+	expires := tr.ExpiresIn
+	if token == "" {
+		token = tr.Data.AccessToken
+		tokenType = tr.Data.TokenType
+		expires = tr.Data.ExpiresIn
+	}
+	if token == "" {
+		return "", errors.New("token response did not contain access_token")
+	}
+	if expires <= 0 {
+		expires = 3600
+	}
+	if tokenType == "" {
+		tokenType = "bearer"
+	}
+	cfg.AccessToken = token
+	cfg.TokenType = tokenType
+	cfg.TokenExpiry = time.Now().Add(time.Duration(expires) * time.Second)
+	_ = core.SaveConfig(cfg)
+	return token, nil
+}

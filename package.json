@@ -1,0 +1,18 @@
+{
+  "name": "captainbi-cli",
+  "version": "0.1.0",
+  "description": "CaptainBI OpenAPI command-line client",
+  "bin": {
+    "cbi": "npm/run.js",
+    "captainbi": "npm/run.js"
+  },
+  "scripts": {
+    "postinstall": "node npm/install.js"
+  },
+  "files": [
+    "npm/",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT"
+}

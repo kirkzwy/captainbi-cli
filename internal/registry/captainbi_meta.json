@@ -1,0 +1,2961 @@
+{
+  "version": "0.1.0",
+  "source": "https://doc.captainbi.com/openapi.json",
+  "services": [
+    {
+      "name": "goods",
+      "displayName": "商品信息",
+      "domain": "goods",
+      "methods": [
+        {
+          "name": "v1.open_goods.edit_goods_group",
+          "commandName": "edit-group",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_goods/edit_goods_group",
+          "summary": "添加或编辑分组",
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "write_dangerous",
+          "requiresOpenChannelId": false,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods_relevant.get_group_list",
+          "commandName": "groups",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_relevant/get_group_list",
+          "summary": "获取商品分组数据",
+          "params": [
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": false,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.get_goods_item_list",
+          "commandName": "items",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_goods_item_list",
+          "summary": "获取商品扩展数据",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.get_goods_list",
+          "commandName": "list",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_goods_list",
+          "summary": "获取商品基础数据",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_user.get_child_list",
+          "commandName": "operators",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_user/get_child_list",
+          "summary": "获取用户子账号数据（运营人员）",
+          "params": [
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": false,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.set_goods_group",
+          "commandName": "set-group",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_goods/set_goods_group",
+          "summary": "设置商品分组",
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "write_dangerous",
+          "requiresOpenChannelId": false,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.set_goods_operate_user",
+          "commandName": "set-operate-user",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_goods/set_goods_operate_user",
+          "summary": "设置商品运营人员",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "write_safe",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_user.set_channel_operation_mode",
+          "commandName": "set-shop-operation-mode",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_user/set_channel_operation_mode",
+          "summary": "设置店铺运营模式",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "write_safe",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_user.get_channel_list",
+          "commandName": "shops",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_user/get_channel_list",
+          "summary": "获取店铺数据",
+          "params": [
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": false,
+          "tableColumns": [
+            "title",
+            "open_channel_id",
+            "site_id",
+            "status"
+          ]
+        },
+        {
+          "name": "v1.open_user.get_site_list",
+          "commandName": "sites",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_user/get_site_list",
+          "summary": "获取站点数据",
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": false,
+          "tableColumns": [
+            "site_id",
+            "site_name",
+            "currency_code",
+            "code"
+          ]
+        },
+        {
+          "name": "v1.open_goods_relevant.get_tags_list",
+          "commandName": "tags",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_relevant/get_tags_list",
+          "summary": "获取商品标签数据",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "id",
+            "sku",
+            "asin",
+            "title",
+            "status",
+            "modified_time"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sales",
+      "displayName": "销售数据",
+      "domain": "sales",
+      "methods": [
+        {
+          "name": "v1.open_order.get_fbm_order_ship_info",
+          "commandName": "fbm-shipping-status",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_order/get_fbm_order_ship_info",
+          "summary": "获取FBM订单发货信息上传状态",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "feed_id",
+              "flag": "feed-id",
+              "location": "query",
+              "type": "string",
+              "required": true,
+              "description": "feed_id"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "AmazonOrderId",
+            "OrderStatus",
+            "PurchaseDate",
+            "Money_Amount",
+            "Money_CurrencyCode"
+          ]
+        },
+        {
+          "name": "v1.open_order.get_order_list",
+          "commandName": "orders",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_order/get_order_list",
+          "summary": "获取订单数据",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "AmazonOrderId",
+            "OrderStatus",
+            "PurchaseDate",
+            "Money_Amount",
+            "Money_CurrencyCode"
+          ]
+        },
+        {
+          "name": "v1.open_order.get_refund_list",
+          "commandName": "refunds",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_order/get_refund_list",
+          "summary": "获取退款明细",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "退款日期，格式为20210101，非必填"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "AmazonOrderId",
+            "OrderStatus",
+            "PurchaseDate",
+            "Money_Amount",
+            "Money_CurrencyCode"
+          ]
+        },
+        {
+          "name": "v1.open_order.get_return_report",
+          "commandName": "returns",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_order/get_return_report",
+          "summary": "获取退货报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "日期，格式为20210101，非必填"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "AmazonOrderId",
+            "OrderStatus",
+            "PurchaseDate",
+            "Money_Amount",
+            "Money_CurrencyCode"
+          ]
+        },
+        {
+          "name": "v1.open_order.upload_fbm_order_ship_info",
+          "commandName": "upload-fbm-shipping",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_order/upload_fbm_order_ship_info",
+          "summary": "上传FBM订单发货信息",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "write_dangerous",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "AmazonOrderId",
+            "OrderStatus",
+            "PurchaseDate",
+            "Money_Amount",
+            "Money_CurrencyCode"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "finance",
+      "displayName": "财务数据",
+      "domain": "finance",
+      "methods": [
+        {
+          "name": "v1.open_goods_finance.get_analysis_by_order",
+          "commandName": "asin-daily",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_finance/get_analysis_by_order",
+          "summary": "获取asin费用解析（下单维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为20210101"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_goods_finance.get_analysis_by_finance",
+          "commandName": "asin-daily-finance",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_finance/get_analysis_by_finance",
+          "summary": "获取asin费用解析（财务维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为20210101"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_goods_finance.get_month_analysis_by_order",
+          "commandName": "asin-monthly",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_finance/get_month_analysis_by_order",
+          "summary": "获取asin月报（下单维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为202101"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_goods_finance.get_month_analysis_by_finance",
+          "commandName": "asin-monthly-finance",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_finance/get_month_analysis_by_finance",
+          "summary": "获取asin月报（财务维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为202101"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_goods_finance.get_transaction_data",
+          "commandName": "asin-transactions",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_finance/get_transaction_data",
+          "summary": "获取交易明细（商品）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "日期，格式为20210101，非必填"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_goods_finance.get_claim_list",
+          "commandName": "claims",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods_finance/get_claim_list",
+          "summary": "获取FBA索赔信息",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_finance.get_classify",
+          "commandName": "classify",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_finance/get_classify",
+          "summary": "获取信息（分类，支付对象，申请人）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_finance.operating_expenses_breakdown",
+          "commandName": "operating-expenses",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_finance/operating_expenses_breakdown",
+          "summary": "获取运营费用详情",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_finance.get_payment_record",
+          "commandName": "payment-record",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_finance/get_payment_record",
+          "summary": "获取回款记录",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_finance.set_goods_cost",
+          "commandName": "set-cost",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_finance/set_goods_cost",
+          "summary": "产品成本设置",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "write_dangerous",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_finance.set_rule",
+          "commandName": "set-rule",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_finance/set_rule",
+          "summary": "运营费用设置",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "write_dangerous",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_channel_finance.get_analysis_by_order",
+          "commandName": "store-daily",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_channel_finance/get_analysis_by_order",
+          "summary": "获取店铺费用解析（下单维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为20210101，店铺也可以传月份202101取整个月数据"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_channel_finance.get_analysis_by_finance",
+          "commandName": "store-daily-finance",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_channel_finance/get_analysis_by_finance",
+          "summary": "获取店铺费用解析（财务维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为20210101，店铺也可以传月份202101取整个月数据"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_channel_finance.get_month_analysis_by_order",
+          "commandName": "store-monthly",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_channel_finance/get_month_analysis_by_order",
+          "summary": "获取店铺月报（下单维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为202101"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_channel_finance.get_month_analysis_by_finance",
+          "commandName": "store-monthly-finance",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_channel_finance/get_month_analysis_by_finance",
+          "summary": "获取店铺月报（财务维度）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "报告的日期，格式为202101"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_finance.get_store_performance",
+          "commandName": "store-performance",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_finance/get_store_performance",
+          "summary": "获取店铺绩效",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_channel_finance.get_transaction_data",
+          "commandName": "store-transactions",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_channel_finance/get_transaction_data",
+          "summary": "获取交易明细（店铺）",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_report_time",
+              "flag": "start-report-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "交易日期，时间戳"
+            },
+            {
+              "name": "end_report_time",
+              "flag": "end-report-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "交易日期，时间戳,范围在31天内"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_finance.get_storewide_performance",
+          "commandName": "storewide-performance",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_finance/get_storewide_performance",
+          "summary": "获取全店铺绩效",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        },
+        {
+          "name": "v1.open_channel_finance.get_vat_report_list",
+          "commandName": "vat",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_channel_finance/get_vat_report_list",
+          "summary": "获取vat报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            },
+            {
+              "name": "report_date",
+              "flag": "report-date",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "日期，格式为20210101，非必填"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "channel_id",
+            "time",
+            "sale_sales_quota",
+            "cost_profit_profit",
+            "cost_profit_profit_rate"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fba",
+      "displayName": "FBA 数据",
+      "domain": "fba",
+      "methods": [
+        {
+          "name": "v1.open_fba.abnormal_distribution_fee",
+          "commandName": "abnormal-fee",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_fba/abnormal_distribution_fee",
+          "summary": "获取异常分配费用",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "asin",
+            "title",
+            "available_stock",
+            "fulfillable_quantity"
+          ]
+        },
+        {
+          "name": "v1.open_fba.get_amazon_asin_monitor_list",
+          "commandName": "asin-monitor",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_fba/get_amazon_asin_monitor_list",
+          "summary": "获取被跟卖监控列表",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "asin",
+            "title",
+            "available_stock",
+            "fulfillable_quantity"
+          ]
+        },
+        {
+          "name": "v1.open_fba.inventory_list",
+          "commandName": "inventory",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_fba/inventory_list",
+          "summary": "获取库存列表",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "sku",
+              "flag": "sku",
+              "location": "query",
+              "type": "string",
+              "required": false,
+              "description": "sku 搜索"
+            },
+            {
+              "name": "asin",
+              "flag": "asin",
+              "location": "query",
+              "type": "string",
+              "required": false,
+              "description": "asin 搜索"
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "asin",
+            "title",
+            "available_stock",
+            "fulfillable_quantity"
+          ]
+        },
+        {
+          "name": "v1.open_fba.get_amazon_shipment_list",
+          "commandName": "shipments",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_fba/get_amazon_shipment_list",
+          "summary": "获取FBA货件管理",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "asin",
+            "title",
+            "available_stock",
+            "fulfillable_quantity"
+          ]
+        },
+        {
+          "name": "v1.open_finance.get_amazon_finance_storage_fee_report_list",
+          "commandName": "storage-fee",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_finance/get_amazon_finance_storage_fee_report_list",
+          "summary": "获取FBA仓储费用",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "asin",
+            "title",
+            "available_stock",
+            "fulfillable_quantity"
+          ]
+        },
+        {
+          "name": "v1.open_fba.sync_shipment",
+          "commandName": "sync-shipment",
+          "httpMethod": "POST",
+          "fullPath": "/v1/open_fba/sync_shipment",
+          "summary": "同步FBA货件",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "sync_trigger",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "sku",
+            "asin",
+            "title",
+            "available_stock",
+            "fulfillable_quantity"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ads",
+      "displayName": "广告数据",
+      "domain": "ads",
+      "methods": [
+        {
+          "name": "v1.open_cpc.advertise",
+          "commandName": "advertise",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise",
+          "summary": "广告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_campaign",
+          "commandName": "advertise-campaign",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_campaign",
+          "summary": "广告活动",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_campaign_report",
+          "commandName": "advertise-campaign-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_campaign_report",
+          "summary": "广告活动报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_expression",
+          "commandName": "advertise-expression",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_expression",
+          "summary": "广告表达式",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_group",
+          "commandName": "advertise-group",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_group",
+          "summary": "广告组",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_group_report",
+          "commandName": "advertise-group-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_group_report",
+          "summary": "广告组报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_keyword",
+          "commandName": "advertise-keyword",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_keyword",
+          "summary": "广告关键词",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_keyword_report",
+          "commandName": "advertise-keyword-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_keyword_report",
+          "summary": "关键词投放报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_mix",
+          "commandName": "advertise-mix",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_mix",
+          "summary": "广告组合",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_mix_report",
+          "commandName": "advertise-mix-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_mix_report",
+          "summary": "广告组合报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_placement",
+          "commandName": "advertise-placement",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_placement",
+          "summary": "广告投放",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.advertise_report",
+          "commandName": "advertise-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/advertise_report",
+          "summary": "广告报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.negative_advertise_expression",
+          "commandName": "negative-advertise-expression",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/negative_advertise_expression",
+          "summary": "否定广告表达式",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.negative_advertise_keyword",
+          "commandName": "negative-advertise-keyword",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/negative_advertise_keyword",
+          "summary": "否定广告关键词",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.negative_advertise_placement",
+          "commandName": "negative-advertise-placement",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/negative_advertise_placement",
+          "summary": "否定广告投放",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.product_targeting_report",
+          "commandName": "product-targeting-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/product_targeting_report",
+          "summary": "商品投放报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.search_term_keywords_report",
+          "commandName": "search-term-keywords-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/search_term_keywords_report",
+          "summary": "搜索词（关键词）报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        },
+        {
+          "name": "v1.open_cpc.search_term_placement_report",
+          "commandName": "search-term-placement-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_cpc/search_term_placement_report",
+          "summary": "搜索词（投放）报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            }
+          ],
+          "pagination": {
+            "type": "none"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "campaignId",
+            "adGroupId",
+            "impressions",
+            "clicks",
+            "cost",
+            "acos",
+            "roas"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "monitor",
+      "displayName": "监控与口碑",
+      "domain": "monitor",
+      "methods": [
+        {
+          "name": "v1.open_goods.get_monitoring_list",
+          "commandName": "bad-review-summary",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_monitoring_list",
+          "summary": "获取监控列表",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "title",
+            "asin",
+            "channel_id",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.get_business_report",
+          "commandName": "business-report",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_business_report",
+          "summary": "获取业务报告",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_create_time",
+              "flag": "start-create-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "创建开始时间"
+            },
+            {
+              "name": "end_create_time",
+              "flag": "end-create-time",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "创建结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "title",
+            "asin",
+            "channel_id",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.get_feedback_monitoring",
+          "commandName": "feedback",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_feedback_monitoring",
+          "summary": "获取Feedback监控",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "title",
+            "asin",
+            "channel_id",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.get_followup_monitoring_list",
+          "commandName": "followup",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_followup_monitoring_list",
+          "summary": "被跟卖监控列表",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "title",
+            "asin",
+            "channel_id",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.get_hijacked_record",
+          "commandName": "hijacked-record",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_hijacked_record",
+          "summary": "获取被跟卖记录",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "monitor_id",
+              "flag": "monitor-id",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "跟卖id"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "title",
+            "asin",
+            "channel_id",
+            "status",
+            "modified_time"
+          ]
+        },
+        {
+          "name": "v1.open_goods.get_reviews_list",
+          "commandName": "reviews",
+          "httpMethod": "GET",
+          "fullPath": "/v1/open_goods/get_reviews_list",
+          "summary": "获取review列表",
+          "params": [
+            {
+              "name": "OpenChannelId",
+              "flag": "openchannelid",
+              "location": "header",
+              "type": "string",
+              "required": true,
+              "description": "店铺密钥"
+            },
+            {
+              "name": "page",
+              "flag": "page",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "页码",
+              "default": 1
+            },
+            {
+              "name": "rows",
+              "flag": "rows",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "description": "返回条数 最大条数 100",
+              "default": 100,
+              "max": 100
+            },
+            {
+              "name": "start_modified_time",
+              "flag": "start-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "更新开始时间"
+            },
+            {
+              "name": "end_modified_time",
+              "flag": "end-modified-time",
+              "location": "query",
+              "type": "integer",
+              "required": false,
+              "description": "结束时间，格式为时间戳，两个时间不能超过31天"
+            }
+          ],
+          "pagination": {
+            "type": "page_rows",
+            "maxRows": 100,
+            "totalField": "max_result"
+          },
+          "riskLevel": "read",
+          "requiresOpenChannelId": true,
+          "tableColumns": [
+            "title",
+            "asin",
+            "channel_id",
+            "status",
+            "modified_time"
+          ]
+        }
+      ]
+    }
+  ]
+}
