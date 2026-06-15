@@ -10,6 +10,9 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +29,7 @@ type Client struct {
 	httpClient *http.Client
 	limiter    *rate.Limiter
 	auth       AuthFunc
+	lastWait   time.Duration
 }
 
 type Request struct {
@@ -69,16 +73,22 @@ func (c *Client) Do(ctx context.Context, req Request) (map[string]any, error) {
 }
 
 func (c *Client) do(ctx context.Context, request Request, token string) (map[string]any, error) {
+	c.lastWait = 0
 	if err := c.limiter.Wait(ctx); err != nil {
 		return nil, &Error{Kind: "rate_limit", Err: err}
 	}
-	var body io.Reader
+	waited, err := c.waitCrossProcess(ctx)
+	if err != nil {
+		return nil, &Error{Kind: "rate_limit", Err: err, Retryable: true}
+	}
+	c.lastWait += waited
+	var bodyBytes []byte
 	if request.Body != nil {
 		b, err := json.Marshal(request.Body)
 		if err != nil {
 			return nil, &Error{Kind: "business", Err: err}
 		}
-		body = bytes.NewReader(b)
+		bodyBytes = b
 	}
 	u, err := url.Parse(strings.TrimRight(c.cfg.BaseURL, "/") + "/" + strings.TrimLeft(request.Path, "/"))
 	if err != nil {
@@ -91,15 +101,6 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		}
 	}
 	u.RawQuery = q.Encode()
-	httpReq, err := http.NewRequestWithContext(ctx, strings.ToUpper(request.Method), u.String(), body)
-	if err != nil {
-		return nil, &Error{Kind: "business", Err: err}
-	}
-	httpReq.Header.Set("authorization", "bearer "+token)
-	httpReq.Header.Set("content-type", "application/json")
-	if request.OpenChannelID != "" {
-		httpReq.Header.Set("OpenChannelId", request.OpenChannelID)
-	}
 
 	var lastErr error
 	for attempt := 0; attempt < 4; attempt++ {
@@ -111,13 +112,26 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 			case <-time.After(delay):
 			}
 		}
+		var body io.Reader
+		if bodyBytes != nil {
+			body = bytes.NewReader(bodyBytes)
+		}
+		httpReq, err := http.NewRequestWithContext(ctx, strings.ToUpper(request.Method), u.String(), body)
+		if err != nil {
+			return nil, &Error{Kind: "business", Err: err}
+		}
+		httpReq.Header.Set("authorization", "bearer "+token)
+		httpReq.Header.Set("content-type", "application/json")
+		if request.OpenChannelID != "" {
+			httpReq.Header.Set("OpenChannelId", request.OpenChannelID)
+		}
 		resp, err := c.httpClient.Do(httpReq)
 		if err != nil {
 			return nil, &Error{Kind: "network", Err: err}
 		}
 		result, err := decodeResponse(resp)
 		if resp.StatusCode == http.StatusTooManyRequests {
-			lastErr = &StatusError{StatusCode: resp.StatusCode, Body: result}
+			lastErr = &StatusError{StatusCode: resp.StatusCode, Body: result, Retryable: true}
 			continue
 		}
 		if resp.StatusCode >= 400 {
@@ -129,6 +143,54 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		return result, nil
 	}
 	return nil, &Error{Kind: "rate_limit", Err: lastErr}
+}
+
+func (c *Client) LastRateLimitWait() time.Duration {
+	return c.lastWait
+}
+
+func (c *Client) waitCrossProcess(ctx context.Context) (time.Duration, error) {
+	dir, err := core.ConfigDir()
+	if err != nil {
+		return 0, err
+	}
+	interval := time.Minute / time.Duration(c.cfg.RateLimit)
+	lockDir := filepath.Join(dir, "rate_limiter.lock")
+	stateFile := filepath.Join(dir, "rate_limiter.next")
+	start := time.Now()
+	for {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return 0, err
+		}
+		if err := os.Mkdir(lockDir, 0o700); err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	defer os.Remove(lockDir)
+
+	var next time.Time
+	if b, err := os.ReadFile(stateFile); err == nil {
+		if n, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64); err == nil && n > 0 {
+			next = time.Unix(0, n)
+		}
+	}
+	now := time.Now()
+	if next.After(now) {
+		wait := next.Sub(now)
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-time.After(wait):
+		}
+	}
+	newNext := time.Now().Add(interval)
+	_ = os.WriteFile(stateFile, []byte(strconv.FormatInt(newNext.UnixNano(), 10)), 0o600)
+	return time.Since(start), nil
 }
 
 func decodeResponse(resp *http.Response) (map[string]any, error) {
@@ -149,8 +211,10 @@ func decodeResponse(resp *http.Response) (map[string]any, error) {
 }
 
 type Error struct {
-	Kind string
-	Err  error
+	Kind       string
+	Err        error
+	Retryable  bool
+	RetryAfter time.Duration
 }
 
 func (e *Error) Error() string { return e.Err.Error() }
@@ -159,6 +223,8 @@ func (e *Error) Unwrap() error { return e.Err }
 type StatusError struct {
 	StatusCode int
 	Body       map[string]any
+	Retryable  bool
+	RetryAfter time.Duration
 }
 
 func (e *StatusError) Error() string {
@@ -166,6 +232,26 @@ func (e *StatusError) Error() string {
 		return fmt.Sprintf("http %d: %s", e.StatusCode, security.RedactValue(msg))
 	}
 	return fmt.Sprintf("http %d", e.StatusCode)
+}
+
+func (e *StatusError) APICode() any {
+	if e == nil || e.Body == nil {
+		return nil
+	}
+	return e.Body["code"]
+}
+
+func (e *StatusError) APIMessage() string {
+	if e == nil || e.Body == nil {
+		return ""
+	}
+	if msg, ok := e.Body["msg"].(string); ok {
+		return msg
+	}
+	if msg, ok := e.Body["message"].(string); ok {
+		return msg
+	}
+	return ""
 }
 
 func isStatus(err error, code int) bool {

@@ -29,15 +29,24 @@ type globalOptions struct {
 	format        string
 	machine       bool
 	openChannelID string
+	channel       string
+	channelFile   string
 	rateLimit     int
+	outputFile    string
+	limit         int
+	summary       bool
+	verbose       bool
+	debug         bool
+	auditLog      string
 }
 
 type requestOptions struct {
-	dryRun    bool
-	jq        string
-	pageAll   bool
-	pageLimit int
-	pageDelay time.Duration
+	dryRun     bool
+	jq         string
+	pageAll    bool
+	pageLimit  int
+	pageDelay  time.Duration
+	maxRecords int
 }
 
 var globals globalOptions
@@ -65,7 +74,15 @@ func NewRootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&globals.format, "format", "json", "output format: json|ndjson|table|csv")
 	cmd.PersistentFlags().BoolVar(&globals.machine, "machine", false, "machine mode: pure structured output and semantic exit codes")
 	cmd.PersistentFlags().StringVar(&globals.openChannelID, "open-channel-id", "", "CaptainBI OpenChannelId; can also use CAPTAINBI_OPEN_CHANNEL_ID")
+	cmd.PersistentFlags().StringVar(&globals.channel, "channel", "", "channel alias from config; use all to run configured channel set")
+	cmd.PersistentFlags().StringVar(&globals.channelFile, "channel-file", "", "JSON file containing channel aliases or OpenChannelId values")
 	cmd.PersistentFlags().IntVar(&globals.rateLimit, "rate-limit", 0, "requests per minute; default 20 or CAPTAINBI_RATE_LIMIT")
+	cmd.PersistentFlags().StringVar(&globals.outputFile, "output-file", "", "write command data output to file instead of stdout")
+	cmd.PersistentFlags().IntVar(&globals.limit, "limit", 0, "limit rows written to stdout or output file")
+	cmd.PersistentFlags().BoolVar(&globals.summary, "summary", false, "write a compact summary instead of full rows")
+	cmd.PersistentFlags().BoolVar(&globals.verbose, "verbose", false, "write redacted request diagnostics to stderr")
+	cmd.PersistentFlags().BoolVar(&globals.debug, "debug", false, "write redacted request and response diagnostics to stderr")
+	cmd.PersistentFlags().StringVar(&globals.auditLog, "audit-log", "", "append redacted audit records to this file")
 
 	cmd.AddCommand(newConfigCmd())
 	cmd.AddCommand(newAuthCmd())
@@ -73,6 +90,8 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(newSchemaCmd(reg, regErr))
 	cmd.AddCommand(newDoctorCmd(reg, regErr))
 	cmd.AddCommand(newCompletionCmd(cmd))
+	cmd.AddCommand(newToolsCmd(reg, regErr))
+	cmd.AddCommand(newRegistryCmd(reg, regErr))
 	if regErr == nil {
 		registerServiceCommands(cmd, reg)
 		registerShortcuts(cmd)
@@ -96,8 +115,8 @@ func loadConfig() (*core.Config, error) {
 
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "config", Short: "Manage CaptainBI CLI configuration"}
-	var clientID, baseURL, openChannelID string
-	var secretStdin bool
+	var clientID, baseURL, openChannelID, secretFile string
+	var secretStdin, secretFromEnv, nonInteractive bool
 	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize client_id/client_secret configuration",
@@ -115,8 +134,23 @@ func newConfigCmd() *cobra.Command {
 			if openChannelID != "" {
 				cfg.OpenChannelID = openChannelID
 			}
-			if cfg.ClientID == "" {
+			if secretFile != "" {
+				cfg.PlainSecretFile = secretFile
+				cfg.UsePlainSecret = true
+				cfg.PlainSecretHint = "file:" + secretFile
+			}
+			if cfg.ClientID == "" && os.Getenv(core.EnvAccessToken) == "" {
 				return typed("auth", "client_id is required; pass --client-id or set CAPTAINBI_CLIENT_ID")
+			}
+			if secretFromEnv && os.Getenv(core.EnvClientSecret) == "" {
+				return typed("auth", "CAPTAINBI_CLIENT_SECRET is required when using --client-secret-from-env")
+			}
+			if secretFromEnv {
+				cfg.UsePlainSecret = false
+				cfg.PlainSecretHint = "env:" + core.EnvClientSecret
+			}
+			if nonInteractive && !secretStdin && !secretFromEnv && secretFile == "" && os.Getenv(core.EnvAccessToken) == "" {
+				return typed("auth", "non-interactive init requires --client-secret-stdin, --client-secret-from-env, --client-secret-file, or CAPTAINBI_ACCESS_TOKEN")
 			}
 			if secretStdin {
 				b, err := io.ReadAll(cmd.InOrStdin())
@@ -140,9 +174,13 @@ func newConfigCmd() *cobra.Command {
 	}
 	initCmd.Flags().StringVar(&clientID, "client-id", "", "CaptainBI APPID/client_id")
 	initCmd.Flags().BoolVar(&secretStdin, "client-secret-stdin", false, "read client_secret from stdin")
+	initCmd.Flags().BoolVar(&secretFromEnv, "client-secret-from-env", false, "read client_secret from CAPTAINBI_CLIENT_SECRET")
+	initCmd.Flags().StringVar(&secretFile, "client-secret-file", "", "read client_secret from file at runtime")
+	initCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "fail instead of prompting; suitable for agents and CI")
 	initCmd.Flags().StringVar(&baseURL, "base-url", core.DefaultBaseURL, "API base URL")
 	initCmd.Flags().StringVar(&openChannelID, "open-channel-id", "", "default OpenChannelId")
 	cmd.AddCommand(initCmd)
+	cmd.AddCommand(newChannelsCmd())
 	showCmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show non-sensitive configuration",
@@ -157,11 +195,68 @@ func newConfigCmd() *cobra.Command {
 				"open_channel_id": security.RedactValue(cfg.OpenChannelID),
 				"rate_limit":      cfg.RateLimit,
 				"token_expiry":    cfg.TokenExpiry,
+				"channels_count":  len(cfg.Channels),
+				"plain_secret":    cfg.PlainSecretHint != "",
 			}
 			return outfmt.Write(cmd.OutOrStdout(), view, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
 		},
 	}
 	cmd.AddCommand(showCmd)
+	return cmd
+}
+
+func newChannelsCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "channels", Short: "Manage OpenChannelId aliases"}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List configured channel aliases",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			rows := []map[string]any{}
+			for alias, id := range cfg.Channels {
+				rows = append(rows, map[string]any{"alias": alias, "open_channel_id": security.RedactValue(id)})
+			}
+			return writeValue(cmd, rows, nil, "")
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "add <alias> <open-channel-id>",
+		Short: "Add or update a channel alias",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := core.LoadConfig()
+			if err != nil {
+				return err
+			}
+			if cfg.Channels == nil {
+				cfg.Channels = map[string]string{}
+			}
+			cfg.Channels[args[0]] = args[1]
+			if err := core.SaveConfig(cfg); err != nil {
+				return err
+			}
+			return writeValue(cmd, map[string]any{"ok": true, "alias": args[0]}, nil, "")
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "remove <alias>",
+		Short: "Remove a channel alias",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := core.LoadConfig()
+			if err != nil {
+				return err
+			}
+			delete(cfg.Channels, args[0])
+			if err := core.SaveConfig(cfg); err != nil {
+				return err
+			}
+			return writeValue(cmd, map[string]any{"ok": true, "alias": args[0]}, nil, "")
+		},
+	})
 	return cmd
 }
 
@@ -223,29 +318,34 @@ func newAuthCmd() *cobra.Command {
 }
 
 func newAPICmd() *cobra.Command {
-	var params, data, jq string
-	var dryRun, pageAll bool
-	var pageLimit, pageDelay int
+	var params, data, paramsFile, dataFile, jq string
+	var dryRun, pageAll, paramsStdin, dataStdin bool
+	var pageLimit, pageDelay, maxRecords int
 	cmd := &cobra.Command{
 		Use:   "api <METHOD> <PATH>",
 		Short: "Call any CaptainBI OpenAPI endpoint",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			query, body, err := parseMaps(params, data, cmd.InOrStdin())
+			query, body, err := parseMaps(inputOptions{params: params, data: data, paramsFile: paramsFile, dataFile: dataFile, paramsStdin: paramsStdin, dataStdin: dataStdin}, cmd.InOrStdin())
 			if err != nil {
 				return err
 			}
 			req := client.Request{Method: strings.ToUpper(args[0]), Path: args[1], Query: query, Body: body}
-			return runRequest(cmd, registry.Method{HTTPMethod: req.Method, FullPath: req.Path, RiskLevel: "read", Pagination: registry.Pagination{Type: "none"}}, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond})
+			return runRequest(cmd, registry.Method{HTTPMethod: req.Method, FullPath: req.Path, RiskLevel: "read", Pagination: registry.Pagination{Type: "none"}}, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords})
 		},
 	}
 	cmd.Flags().StringVar(&params, "params", "", "query parameters JSON; supports - for stdin")
 	cmd.Flags().StringVar(&data, "data", "", "request body JSON; supports - for stdin")
+	cmd.Flags().BoolVar(&paramsStdin, "params-stdin", false, "read query parameter JSON from stdin")
+	cmd.Flags().BoolVar(&dataStdin, "data-stdin", false, "read request body JSON from stdin")
+	cmd.Flags().StringVar(&paramsFile, "params-file", "", "read query parameter JSON from file")
+	cmd.Flags().StringVar(&dataFile, "data-file", "", "read request body JSON from file")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print request without sending it")
 	cmd.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
 	cmd.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
 	cmd.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
 	cmd.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
+	cmd.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
 	return cmd
 }
 
@@ -263,7 +363,10 @@ func newSchemaCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("schema %q not found", args[0])
 			}
-			return outfmt.Write(cmd.OutOrStdout(), m, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, nil)
+			if globals.format == "openai-tool" {
+				return outfmt.Write(cmd.OutOrStdout(), openAIToolSchema(m), outfmt.Options{Format: "json", Machine: globals.machine, JQ: jq}, nil)
+			}
+			return outfmt.Write(cmd.OutOrStdout(), schemaView(m), outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, nil)
 		},
 	}
 	cmd.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
@@ -283,11 +386,19 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			if regErr != nil {
 				return regErr
 			}
+			dir, _ := core.ConfigDir()
 			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
-				"config_loads":      true,
-				"client_configured": cfg.ClientID != "",
-				"registry_methods":  len(reg.AllMethods()),
-				"registry_services": len(reg.Services),
+				"config_loads":              true,
+				"client_configured":         cfg.ClientID != "",
+				"has_access_token":          cfg.AccessToken != "",
+				"keyring_available":         core.KeyringAvailable(),
+				"headless_secret_supported": os.Getenv(core.EnvClientSecret) != "" || os.Getenv(core.EnvAccessToken) != "" || cfg.PlainSecretFile != "",
+				"headless_recommendation":   "use CAPTAINBI_ACCESS_TOKEN, CAPTAINBI_CLIENT_SECRET, or cbi config init --client-secret-file",
+				"registry_methods":          len(reg.AllMethods()),
+				"registry_services":         len(reg.Services),
+				"rate_limit_per_minute":     cfg.RateLimit,
+				"rate_limit_lock_file":      dir + "/rate_limiter.lock",
+				"rate_limit_state_file":     dir + "/rate_limiter.next",
 			}, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
 		},
 	})
@@ -339,9 +450,9 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 		svcCmd := &cobra.Command{Use: service.Domain, Short: service.DisplayName}
 		for _, method := range service.Methods {
 			m := method
-			var params, data, jq string
-			var dryRun, confirm, yes, pageAll bool
-			var pageLimit, pageDelay int
+			var params, data, paramsFile, dataFile, jq string
+			var dryRun, confirm, yes, pageAll, paramsStdin, dataStdin bool
+			var pageLimit, pageDelay, maxRecords int
 			endpointCmd := &cobra.Command{
 				Use:   m.CommandName,
 				Short: m.Summary,
@@ -354,7 +465,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 						return err
 					}
 					req := client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query, Body: body}
-					return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond})
+					return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords})
 				},
 			}
 			for _, p := range m.Params {
@@ -368,6 +479,10 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 			}
 			endpointCmd.Flags().StringVar(&params, "params", "", "extra query parameters JSON")
 			endpointCmd.Flags().StringVar(&data, "data", "", "request body JSON")
+			endpointCmd.Flags().BoolVar(&paramsStdin, "params-stdin", false, "read query parameter JSON from stdin")
+			endpointCmd.Flags().BoolVar(&dataStdin, "data-stdin", false, "read request body JSON from stdin")
+			endpointCmd.Flags().StringVar(&paramsFile, "params-file", "", "read query parameter JSON from file")
+			endpointCmd.Flags().StringVar(&dataFile, "data-file", "", "read request body JSON from file")
 			endpointCmd.Flags().BoolVar(&dryRun, "dry-run", false, "print request without sending it")
 			endpointCmd.Flags().BoolVar(&confirm, "confirm", false, "confirm dangerous or sync-triggering write")
 			endpointCmd.Flags().BoolVar(&yes, "yes", false, "skip prompt for write_safe commands")
@@ -375,6 +490,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 			endpointCmd.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
 			endpointCmd.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
 			endpointCmd.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
+			endpointCmd.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
 			svcCmd.AddCommand(endpointCmd)
 		}
 		root.AddCommand(svcCmd)
@@ -382,8 +498,9 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 }
 
 func registerShortcuts(root *cobra.Command) {
-	shortcut := func(use, short, domainRef string) *cobra.Command {
-		return &cobra.Command{
+	shortcut := func(use, short, domainRef string, configure func(*cobra.Command, map[string]*string)) *cobra.Command {
+		values := map[string]*string{}
+		c := &cobra.Command{
 			Use:   use,
 			Short: short,
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -405,19 +522,53 @@ func registerShortcuts(root *cobra.Command) {
 						}
 					}
 				}
+				for name, ptr := range values {
+					if ptr != nil && *ptr != "" {
+						query[name] = *ptr
+					}
+				}
+				for _, p := range m.Params {
+					if p.Location == "query" && p.Required && query[p.Name] == "" {
+						return typed("business", "required shortcut flag is missing for "+p.Name)
+					}
+				}
 				return runRequest(cmd, m, client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query}, requestOptions{})
 			},
 		}
+		if configure != nil {
+			configure(c, values)
+		}
+		return c
 	}
-	root.AddCommand(shortcut("+shops", "List shops", "goods.shops"))
-	root.AddCommand(shortcut("+sites", "List sites", "goods.sites"))
-	root.AddCommand(shortcut("+orders", "List orders", "sales.orders"))
-	root.AddCommand(shortcut("+goods", "List goods", "goods.list"))
-	root.AddCommand(shortcut("+finance-daily", "Get store daily finance report", "finance.store-daily"))
+	root.AddCommand(shortcut("+shops", "List shops", "goods.shops", nil))
+	root.AddCommand(shortcut("+sites", "List sites", "goods.sites", nil))
+	root.AddCommand(shortcut("+orders", "List orders", "sales.orders", func(cmd *cobra.Command, values map[string]*string) {
+		start, end := "", ""
+		values["start_modified_time"] = &start
+		values["end_modified_time"] = &end
+		cmd.Flags().StringVar(&start, "start", "", "start modified timestamp")
+		cmd.Flags().StringVar(&end, "end", "", "end modified timestamp")
+	}))
+	root.AddCommand(shortcut("+goods", "List goods", "goods.list", func(cmd *cobra.Command, values map[string]*string) {
+		modifiedSince, end := "", ""
+		values["start_modified_time"] = &modifiedSince
+		values["end_modified_time"] = &end
+		cmd.Flags().StringVar(&modifiedSince, "modified-since", "", "start modified timestamp")
+		cmd.Flags().StringVar(&end, "modified-until", "", "end modified timestamp")
+	}))
+	root.AddCommand(shortcut("+finance-daily", "Get store daily finance report", "finance.store-daily", func(cmd *cobra.Command, values map[string]*string) {
+		date := ""
+		values["report_date"] = &date
+		cmd.Flags().StringVar(&date, "date", "", "report date, for example 20260615")
+	}))
 }
 
 func collectEndpointInput(cmd *cobra.Command, m registry.Method, extraParams, data string) (map[string]string, any, error) {
-	query, body, err := parseMaps(extraParams, data, cmd.InOrStdin())
+	paramsFile, _ := cmd.Flags().GetString("params-file")
+	dataFile, _ := cmd.Flags().GetString("data-file")
+	paramsStdin, _ := cmd.Flags().GetBool("params-stdin")
+	dataStdin, _ := cmd.Flags().GetBool("data-stdin")
+	query, body, err := parseMaps(inputOptions{params: extraParams, data: data, paramsFile: paramsFile, dataFile: dataFile, paramsStdin: paramsStdin, dataStdin: dataStdin}, cmd.InOrStdin())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -444,28 +595,55 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 	if err != nil {
 		return err
 	}
-	if req.OpenChannelID == "" {
-		req.OpenChannelID = cfg.OpenChannelID
-	}
-	if m.RequiresOpenChannelID && req.OpenChannelID == "" {
-		return typed("business", "OpenChannelId is required; pass --open-channel-id or set CAPTAINBI_OPEN_CHANNEL_ID")
-	}
-	if opts.dryRun {
-		view := map[string]any{
-			"method":  req.Method,
-			"path":    req.Path,
-			"query":   req.Query,
-			"body":    req.Body,
-			"headers": map[string]any{"authorization": security.RedactValue("bearer token"), "OpenChannelId": security.RedactValue(req.OpenChannelID)},
-		}
-		return outfmt.Write(cmd.OutOrStdout(), view, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
-	}
-	c := client.New(cfg, func(ctx context.Context, force bool) (string, error) { return auth.GetToken(ctx, cfg, force) })
-	resp, err := executeRequest(cmd.Context(), c, m, req, opts)
+	targets, err := resolveChannels(cfg, req.OpenChannelID, m.RequiresOpenChannelID)
 	if err != nil {
 		return err
 	}
-	return outfmt.Write(cmd.OutOrStdout(), resp, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: opts.jq}, m.TableColumns)
+	if opts.dryRun {
+		views := []map[string]any{}
+		for _, target := range targets {
+			views = append(views, dryRunView(req, target.ID, target.Alias))
+		}
+		if len(views) == 1 {
+			return writeValue(cmd, views[0], nil, opts.jq)
+		}
+		return writeValue(cmd, views, nil, opts.jq)
+	}
+	c := client.New(cfg, func(ctx context.Context, force bool) (string, error) { return auth.GetToken(ctx, cfg, force) })
+	if len(targets) > 1 {
+		results := []map[string]any{}
+		for _, target := range targets {
+			req.OpenChannelID = target.ID
+			resp, err := executeRequest(cmd.Context(), c, m, req, opts)
+			results = append(results, channelResult(target, resp, err))
+			writeAudit(m, target, err)
+		}
+		return writeValue(cmd, map[string]any{"ok": true, "channels": results}, nil, opts.jq)
+	}
+	req.OpenChannelID = targets[0].ID
+	resp, err := executeRequest(cmd.Context(), c, m, req, opts)
+	writeAudit(m, targets[0], err)
+	if err != nil {
+		return err
+	}
+	if globals.verbose || globals.debug {
+		fmt.Fprintf(cmd.ErrOrStderr(), "request method=%s path=%s channel=%s rate_limit_wait_ms=%d\n", req.Method, req.Path, security.RedactValue(req.OpenChannelID), c.LastRateLimitWait().Milliseconds())
+	}
+	if wait := c.LastRateLimitWait(); wait > 0 {
+		resp["rate_limit_wait_ms"] = wait.Milliseconds()
+	}
+	return writeValue(cmd, resp, m.TableColumns, opts.jq)
+}
+
+func dryRunView(req client.Request, openChannelID, alias string) map[string]any {
+	return map[string]any{
+		"method":  req.Method,
+		"path":    req.Path,
+		"query":   req.Query,
+		"body":    req.Body,
+		"channel": alias,
+		"headers": map[string]any{"authorization": security.RedactValue("bearer token"), "OpenChannelId": security.RedactValue(openChannelID)},
+	}
 }
 
 func executeRequest(ctx context.Context, c *client.Client, m registry.Method, req client.Request, opts requestOptions) (map[string]any, error) {
@@ -505,8 +683,15 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 			envelope = resp
 		}
 		data, _ := resp["data"].([]any)
+		if raw, ok := resp["data"]; ok && raw != nil && data == nil {
+			return nil, typed("business", "page_rows response data must be an array")
+		}
 		all = append(all, data...)
-		maxResult := intFrom(resp["max_result"])
+		if opts.maxRecords > 0 && len(all) >= opts.maxRecords {
+			all = all[:opts.maxRecords]
+			break
+		}
+		maxResult := intFrom(resp[m.Pagination.TotalField])
 		if len(data) < rows {
 			break
 		}
@@ -525,6 +710,9 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	envelope["data"] = all
 	envelope["page_all"] = true
 	envelope["fetched_rows"] = len(all)
+	envelope["pages_fetched"] = intFrom(req.Query["page"])
+	envelope["pages_failed"] = 0
+	envelope["partial"] = false
 	return envelope, nil
 }
 
@@ -566,10 +754,31 @@ func enforceRisk(cmd *cobra.Command, m registry.Method, confirm, yes, dryRun boo
 	return nil
 }
 
-func parseMaps(params, data string, stdin io.Reader) (map[string]string, any, error) {
+type inputOptions struct {
+	params      string
+	data        string
+	paramsFile  string
+	dataFile    string
+	paramsStdin bool
+	dataStdin   bool
+}
+
+func parseMaps(opts inputOptions, stdin io.Reader) (map[string]string, any, error) {
 	query := map[string]string{}
-	if params != "" {
-		raw, err := readArg(params, stdin)
+	if opts.paramsStdin {
+		opts.params = "-"
+	}
+	if opts.dataStdin {
+		opts.data = "-"
+	}
+	if opts.paramsFile != "" {
+		opts.params = "@" + opts.paramsFile
+	}
+	if opts.dataFile != "" {
+		opts.data = "@" + opts.dataFile
+	}
+	if opts.params != "" {
+		raw, err := readArg(opts.params, stdin)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -582,8 +791,8 @@ func parseMaps(params, data string, stdin io.Reader) (map[string]string, any, er
 		}
 	}
 	var body any
-	if data != "" {
-		raw, err := readArg(data, stdin)
+	if opts.data != "" {
+		raw, err := readArg(opts.data, stdin)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -664,6 +873,18 @@ func exitCode(err error) int {
 			return 1
 		}
 	}
+	var se *client.StatusError
+	if errors.As(err, &se) {
+		if se.StatusCode == 429 {
+			return 4
+		}
+		if se.StatusCode == 401 || se.StatusCode == 403 {
+			return 2
+		}
+		if se.StatusCode >= 500 {
+			return 3
+		}
+	}
 	return 1
 }
 
@@ -678,11 +899,28 @@ func writeError(w io.Writer, err error, code int) {
 		if errors.As(err, &ce) {
 			kind = ce.Kind
 		}
+		var se *client.StatusError
+		if errors.As(err, &se) {
+			if se.StatusCode == 429 {
+				kind = "rate_limit"
+			} else if se.StatusCode == 401 || se.StatusCode == 403 {
+				kind = "auth"
+			} else if se.StatusCode >= 500 {
+				kind = "network"
+			}
+		}
+		retryable, retryAfterMS := retryFields(err)
+		apiCode, apiMsg := apiErrorFields(err)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"ok":      false,
-			"code":    code,
-			"kind":    kind,
-			"message": security.RedactString(err.Error()),
+			"ok":             false,
+			"error_code":     errorCode(err),
+			"kind":           kind,
+			"message":        security.RedactString(err.Error()),
+			"retryable":      retryable,
+			"retry_after_ms": retryAfterMS,
+			"api_code":       apiCode,
+			"api_msg":        security.RedactString(apiMsg),
+			"request_id":     requestID(err),
 		})
 		return
 	}

@@ -29,6 +29,7 @@ type Method struct {
 	RiskLevel             string     `json:"riskLevel"`
 	RequiresOpenChannelID bool       `json:"requiresOpenChannelId"`
 	TableColumns          []string   `json:"tableColumns,omitempty"`
+	ResponseSchema        any        `json:"responseSchema,omitempty"`
 }
 
 type Service struct {

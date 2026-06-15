@@ -218,7 +218,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_user.get_child_list",
@@ -414,7 +451,38 @@
             "open_channel_id",
             "site_id",
             "status"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "open_channel_id": {
+                      "type": "string"
+                    },
+                    "site_id": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_user.get_site_list",
@@ -432,7 +500,38 @@
             "site_name",
             "currency_code",
             "code"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "currency_code": {
+                      "type": "string"
+                    },
+                    "site_id": {
+                      "type": "integer"
+                    },
+                    "site_name": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods_relevant.get_tags_list",
@@ -609,7 +708,41 @@
             "PurchaseDate",
             "Money_Amount",
             "Money_CurrencyCode"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "AmazonOrderId": {
+                      "type": "string"
+                    },
+                    "Money_Amount": {
+                      "type": "string"
+                    },
+                    "Money_CurrencyCode": {
+                      "type": "string"
+                    },
+                    "OrderStatus": {
+                      "type": "string"
+                    },
+                    "PurchaseDate": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_order.get_refund_list",
@@ -1380,7 +1513,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_channel_finance.get_analysis_by_finance",
@@ -1906,7 +2076,41 @@
             "title",
             "available_stock",
             "fulfillable_quantity"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "available_stock": {
+                      "type": "string"
+                    },
+                    "fulfillable_quantity": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_fba.get_amazon_shipment_list",
@@ -2093,7 +2297,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_expression",
@@ -2953,7 +3197,41 @@
             "channel_id",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         }
       ]
     }

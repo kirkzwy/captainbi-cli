@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -24,6 +25,9 @@ type TokenResponse struct {
 }
 
 func GetToken(ctx context.Context, cfg *core.Config, force bool) (string, error) {
+	if os.Getenv(core.EnvAccessToken) != "" && cfg.AccessToken != "" {
+		return cfg.AccessToken, nil
+	}
 	if !force && cfg.AccessToken != "" && time.Until(cfg.TokenExpiry) > time.Minute {
 		return cfg.AccessToken, nil
 	}

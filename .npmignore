@@ -1,0 +1,4 @@
+npm/bin/
+bin/
+reference/
+scripts/smoke/*.log

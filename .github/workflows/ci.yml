@@ -16,3 +16,10 @@ jobs:
       - run: go test ./...
       - run: go run ./tools/gen-registry
       - run: git diff --exit-code
+      - run: go build -o npm/bin/cbi .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm pack --ignore-scripts
+      - run: node npm/run.js --version
+      - run: node npm/run.js doctor local --machine

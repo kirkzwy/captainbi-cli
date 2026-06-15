@@ -54,6 +54,7 @@ type method struct {
 	RiskLevel             string   `json:"riskLevel"`
 	RequiresOpenChannelID bool     `json:"requiresOpenChannelId"`
 	TableColumns          []string `json:"tableColumns,omitempty"`
+	ResponseSchema        any      `json:"responseSchema,omitempty"`
 }
 
 type param struct {
@@ -87,7 +88,9 @@ func main() {
 	b, err := json.MarshalIndent(reg, "", "  ")
 	must(err)
 	must(os.WriteFile(*out, append(b, '\n'), 0o644))
+	must(os.Chmod(*out, 0o644))
 	must(os.WriteFile(*docs, []byte(renderDocs(reg)), 0o644))
+	must(os.Chmod(*docs, 0o644))
 }
 
 func readSource(source string) ([]byte, error) {
@@ -129,6 +132,7 @@ func buildRegistry(source string, s spec) registry {
 				RequiresOpenChannelID: requiresOpenChannel(op.Parameters),
 				Pagination:            paginationFor(op.Parameters),
 				TableColumns:          tableColumnsFor(domain, p),
+				ResponseSchema:        responseSchemaFor(domain, p),
 			}
 			for _, raw := range op.Parameters {
 				if strings.EqualFold(raw.Name, "authorization") {
@@ -305,6 +309,56 @@ func tableColumnsFor(domain, path string) []string {
 	default:
 		return nil
 	}
+}
+
+func responseSchemaFor(domain, path string) any {
+	highFrequency := map[string]bool{
+		"/v1/open_user/get_site_list":                    true,
+		"/v1/open_user/get_channel_list":                 true,
+		"/v1/open_goods/get_goods_list":                  true,
+		"/v1/open_order/get_order_list":                  true,
+		"/v1/open_channel_finance/get_analysis_by_order": true,
+		"/v1/open_cpc/advertise_campaign_report":         true,
+		"/v1/open_fba/inventory_list":                    true,
+		"/v1/open_goods/get_reviews_list":                true,
+	}
+	if !highFrequency[path] {
+		return nil
+	}
+	props := map[string]any{
+		"code": map[string]any{"type": "integer"},
+		"msg":  map[string]any{"type": "string"},
+		"data": map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+	}
+	if strings.Contains(path, "get_storewide_performance") || strings.Contains(path, "get_store_performance") {
+		props["data"] = map[string]any{"type": "object"}
+	}
+	columns := tableColumnsFor(domain, path)
+	if len(columns) > 0 {
+		itemProps := map[string]any{}
+		for _, col := range columns {
+			itemProps[col] = map[string]any{"type": "string"}
+		}
+		props["data"] = map[string]any{
+			"type":  "array",
+			"items": map[string]any{"type": "object", "properties": itemProps},
+		}
+	}
+	if strings.Contains(path, "get_channel_list") {
+		props["data"] = arraySchema(map[string]string{"title": "string", "open_channel_id": "string", "site_id": "integer", "status": "integer"})
+	}
+	if strings.Contains(path, "get_site_list") {
+		props["data"] = arraySchema(map[string]string{"site_id": "integer", "site_name": "string", "currency_code": "string", "code": "string"})
+	}
+	return map[string]any{"type": "object", "properties": props}
+}
+
+func arraySchema(fields map[string]string) map[string]any {
+	props := map[string]any{}
+	for k, typ := range fields {
+		props[k] = map[string]any{"type": typ}
+	}
+	return map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": props}}
 }
 
 var notFlagChars = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)

@@ -18,21 +18,24 @@ const (
 
 	EnvClientID      = "CAPTAINBI_CLIENT_ID"
 	EnvClientSecret  = "CAPTAINBI_CLIENT_SECRET"
+	EnvAccessToken   = "CAPTAINBI_ACCESS_TOKEN"
 	EnvBaseURL       = "CAPTAINBI_BASE_URL"
 	EnvOpenChannelID = "CAPTAINBI_OPEN_CHANNEL_ID"
 	EnvRateLimit     = "CAPTAINBI_RATE_LIMIT"
 )
 
 type Config struct {
-	ClientID        string    `json:"client_id,omitempty"`
-	BaseURL         string    `json:"base_url,omitempty"`
-	OpenChannelID   string    `json:"open_channel_id,omitempty"`
-	RateLimit       int       `json:"rate_limit,omitempty"`
-	AccessToken     string    `json:"access_token,omitempty"`
-	TokenType       string    `json:"token_type,omitempty"`
-	TokenExpiry     time.Time `json:"token_expiry,omitempty"`
-	UsePlainSecret  bool      `json:"use_plain_secret,omitempty"`
-	PlainSecretHint string    `json:"plain_secret_hint,omitempty"`
+	ClientID        string            `json:"client_id,omitempty"`
+	BaseURL         string            `json:"base_url,omitempty"`
+	OpenChannelID   string            `json:"open_channel_id,omitempty"`
+	RateLimit       int               `json:"rate_limit,omitempty"`
+	AccessToken     string            `json:"access_token,omitempty"`
+	TokenType       string            `json:"token_type,omitempty"`
+	TokenExpiry     time.Time         `json:"token_expiry,omitempty"`
+	UsePlainSecret  bool              `json:"use_plain_secret,omitempty"`
+	PlainSecretFile string            `json:"plain_secret_file,omitempty"`
+	PlainSecretHint string            `json:"plain_secret_hint,omitempty"`
+	Channels        map[string]string `json:"channels,omitempty"`
 }
 
 func ConfigDir() (string, error) {
@@ -74,6 +77,9 @@ func LoadConfig() (*Config, error) {
 	if cfg.RateLimit <= 0 {
 		cfg.RateLimit = DefaultRate
 	}
+	if cfg.Channels == nil {
+		cfg.Channels = map[string]string{}
+	}
 	return cfg, nil
 }
 
@@ -95,6 +101,11 @@ func SaveConfig(cfg *Config) error {
 func ApplyEnv(cfg *Config) {
 	if v := os.Getenv(EnvClientID); v != "" {
 		cfg.ClientID = v
+	}
+	if v := os.Getenv(EnvAccessToken); v != "" {
+		cfg.AccessToken = v
+		cfg.TokenType = "bearer"
+		cfg.TokenExpiry = time.Now().Add(24 * time.Hour)
 	}
 	if v := os.Getenv(EnvBaseURL); v != "" {
 		cfg.BaseURL = v
@@ -120,6 +131,16 @@ func LoadClientSecret(cfg *Config) (string, error) {
 	if v := os.Getenv(EnvClientSecret); v != "" {
 		return v, nil
 	}
+	if cfg.PlainSecretFile != "" {
+		b, err := os.ReadFile(cfg.PlainSecretFile)
+		if err != nil {
+			return "", err
+		}
+		if secret := string(bytesTrimSpace(b)); secret != "" {
+			return secret, nil
+		}
+		return "", errors.New("client_secret file is empty")
+	}
 	if cfg.ClientID == "" {
 		return "", errors.New("client_id is not configured")
 	}
@@ -128,6 +149,30 @@ func LoadClientSecret(cfg *Config) (string, error) {
 		return "", errors.New("client_secret is not available; run `cbi config init --client-secret-stdin` or set CAPTAINBI_CLIENT_SECRET")
 	}
 	return secret, nil
+}
+
+func bytesTrimSpace(b []byte) []byte {
+	for len(b) > 0 && (b[0] == ' ' || b[0] == '\n' || b[0] == '\r' || b[0] == '\t') {
+		b = b[1:]
+	}
+	for len(b) > 0 {
+		last := b[len(b)-1]
+		if last != ' ' && last != '\n' && last != '\r' && last != '\t' {
+			break
+		}
+		b = b[:len(b)-1]
+	}
+	return b
+}
+
+func KeyringAvailable() bool {
+	testUser := "__captainbi_keyring_probe__"
+	if err := keyring.Set(AppName, testUser, "ok"); err != nil {
+		return false
+	}
+	_, err := keyring.Get(AppName, testUser)
+	_ = keyring.Delete(AppName, testUser)
+	return err == nil
 }
 
 func DeleteClientSecret(clientID string) {

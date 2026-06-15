@@ -3,11 +3,12 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 
 const version = require("../package.json").version;
-const platformMap = { darwin: "Darwin", linux: "Linux", win32: "Windows" };
-const archMap = { x64: "x86_64", arm64: "arm64" };
+const platformMap = { darwin: "darwin", linux: "linux", win32: "windows" };
+const archMap = { x64: "amd64", arm64: "arm64" };
 const platform = platformMap[process.platform];
 const arch = archMap[process.arch];
 
@@ -23,12 +24,15 @@ const base = process.env.CAPTAINBI_CLI_DOWNLOAD_BASE || "https://github.com/kirk
 const url = `${base}/v${version}/${archiveName}`;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "captainbi-cli-"));
 const archive = path.join(tmp, archiveName);
+const checksums = path.join(tmp, "checksums.txt");
 const outDir = path.join(__dirname, "bin");
 const dest = path.join(outDir, `cbi${binExt}`);
 
 try {
   fs.mkdirSync(outDir, { recursive: true });
   execFileSync("curl", ["--fail", "--location", "--silent", "--show-error", "--output", archive, url], { stdio: "inherit" });
+  execFileSync("curl", ["--fail", "--location", "--silent", "--show-error", "--output", checksums, `${base}/v${version}/checksums.txt`], { stdio: "inherit" });
+  verifyChecksum(checksums, archiveName, archive);
   if (process.platform === "win32") {
     execFileSync("powershell", ["-Command", `Expand-Archive -Path '${archive}' -DestinationPath '${tmp}'`], { stdio: "inherit" });
   } else {
@@ -44,6 +48,18 @@ try {
   process.exit(1);
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
+}
+
+function verifyChecksum(checksumsPath, archiveName, archivePath) {
+  const line = fs.readFileSync(checksumsPath, "utf8").split(/\r?\n/).find((item) => item.includes(archiveName));
+  if (!line) {
+    throw new Error(`checksum not found for ${archiveName}`);
+  }
+  const expected = line.trim().split(/\s+/)[0].toLowerCase();
+  const actual = crypto.createHash("sha256").update(fs.readFileSync(archivePath)).digest("hex").toLowerCase();
+  if (actual !== expected) {
+    throw new Error(`checksum mismatch for ${archiveName}`);
+  }
 }
 
 function findBinary(dir, name) {
