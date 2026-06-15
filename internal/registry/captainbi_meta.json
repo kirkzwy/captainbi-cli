@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "source": "https://doc.captainbi.com/openapi.json",
   "services": [
     {
@@ -25,7 +25,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods_relevant.get_group_list",
@@ -84,7 +121,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.get_goods_item_list",
@@ -151,7 +225,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.get_goods_list",
@@ -314,7 +425,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.set_goods_group",
@@ -334,7 +482,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.set_goods_operate_user",
@@ -364,7 +549,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_user.set_channel_operation_mode",
@@ -394,7 +616,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_user.get_channel_list",
@@ -598,7 +857,44 @@
             "title",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         }
       ]
     },
@@ -642,7 +938,41 @@
             "PurchaseDate",
             "Money_Amount",
             "Money_CurrencyCode"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "AmazonOrderId": {
+                      "type": "string"
+                    },
+                    "Money_Amount": {
+                      "type": "string"
+                    },
+                    "Money_CurrencyCode": {
+                      "type": "string"
+                    },
+                    "OrderStatus": {
+                      "type": "string"
+                    },
+                    "PurchaseDate": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_order.get_order_list",
@@ -816,7 +1146,41 @@
             "PurchaseDate",
             "Money_Amount",
             "Money_CurrencyCode"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "AmazonOrderId": {
+                      "type": "string"
+                    },
+                    "Money_Amount": {
+                      "type": "string"
+                    },
+                    "Money_CurrencyCode": {
+                      "type": "string"
+                    },
+                    "OrderStatus": {
+                      "type": "string"
+                    },
+                    "PurchaseDate": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_order.get_return_report",
@@ -890,7 +1254,41 @@
             "PurchaseDate",
             "Money_Amount",
             "Money_CurrencyCode"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "AmazonOrderId": {
+                      "type": "string"
+                    },
+                    "Money_Amount": {
+                      "type": "string"
+                    },
+                    "Money_CurrencyCode": {
+                      "type": "string"
+                    },
+                    "OrderStatus": {
+                      "type": "string"
+                    },
+                    "PurchaseDate": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_order.upload_fbm_order_ship_info",
@@ -919,7 +1317,41 @@
             "PurchaseDate",
             "Money_Amount",
             "Money_CurrencyCode"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "AmazonOrderId": {
+                      "type": "string"
+                    },
+                    "Money_Amount": {
+                      "type": "string"
+                    },
+                    "Money_CurrencyCode": {
+                      "type": "string"
+                    },
+                    "OrderStatus": {
+                      "type": "string"
+                    },
+                    "PurchaseDate": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         }
       ]
     },
@@ -985,7 +1417,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods_finance.get_analysis_by_finance",
@@ -1044,7 +1513,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods_finance.get_month_analysis_by_order",
@@ -1103,7 +1609,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods_finance.get_month_analysis_by_finance",
@@ -1162,7 +1705,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods_finance.get_transaction_data",
@@ -1237,7 +1817,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods_finance.get_claim_list",
@@ -1304,7 +1921,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.get_classify",
@@ -1334,7 +1988,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.operating_expenses_breakdown",
@@ -1364,7 +2055,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.get_payment_record",
@@ -1394,7 +2122,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.set_goods_cost",
@@ -1424,7 +2189,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.set_rule",
@@ -1454,7 +2256,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_channel_finance.get_analysis_by_order",
@@ -1609,7 +2448,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_channel_finance.get_month_analysis_by_order",
@@ -1668,7 +2544,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_channel_finance.get_month_analysis_by_finance",
@@ -1727,7 +2640,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.get_store_performance",
@@ -1757,7 +2707,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_channel_finance.get_transaction_data",
@@ -1824,7 +2811,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.get_storewide_performance",
@@ -1854,7 +2878,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_channel_finance.get_vat_report_list",
@@ -1929,7 +2990,44 @@
             "sale_sales_quota",
             "cost_profit_profit",
             "cost_profit_profit_rate"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit": {
+                      "type": "string"
+                    },
+                    "cost_profit_profit_rate": {
+                      "type": "string"
+                    },
+                    "sale_sales_quota": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         }
       ]
     },
@@ -1965,7 +3063,41 @@
             "title",
             "available_stock",
             "fulfillable_quantity"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "available_stock": {
+                      "type": "string"
+                    },
+                    "fulfillable_quantity": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_fba.get_amazon_asin_monitor_list",
@@ -1994,7 +3126,41 @@
             "title",
             "available_stock",
             "fulfillable_quantity"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "available_stock": {
+                      "type": "string"
+                    },
+                    "fulfillable_quantity": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_fba.inventory_list",
@@ -2139,7 +3305,41 @@
             "title",
             "available_stock",
             "fulfillable_quantity"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "available_stock": {
+                      "type": "string"
+                    },
+                    "fulfillable_quantity": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_finance.get_amazon_finance_storage_fee_report_list",
@@ -2168,7 +3368,41 @@
             "title",
             "available_stock",
             "fulfillable_quantity"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "available_stock": {
+                      "type": "string"
+                    },
+                    "fulfillable_quantity": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_fba.sync_shipment",
@@ -2197,7 +3431,41 @@
             "title",
             "available_stock",
             "fulfillable_quantity"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "available_stock": {
+                      "type": "string"
+                    },
+                    "fulfillable_quantity": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         }
       ]
     },
@@ -2235,7 +3503,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_campaign",
@@ -2266,7 +3574,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_campaign_report",
@@ -2368,7 +3716,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_group",
@@ -2399,7 +3787,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_group_report",
@@ -2430,7 +3858,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_keyword",
@@ -2461,7 +3929,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_keyword_report",
@@ -2492,7 +4000,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_mix",
@@ -2523,7 +4071,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_mix_report",
@@ -2554,7 +4142,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_placement",
@@ -2585,7 +4213,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.advertise_report",
@@ -2616,7 +4284,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.negative_advertise_expression",
@@ -2647,7 +4355,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.negative_advertise_keyword",
@@ -2678,7 +4426,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.negative_advertise_placement",
@@ -2709,7 +4497,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.product_targeting_report",
@@ -2740,7 +4568,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.search_term_keywords_report",
@@ -2771,7 +4639,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_cpc.search_term_placement_report",
@@ -2802,7 +4710,47 @@
             "cost",
             "acos",
             "roas"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "acos": {
+                      "type": "string"
+                    },
+                    "adGroupId": {
+                      "type": "string"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "clicks": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "string"
+                    },
+                    "impressions": {
+                      "type": "string"
+                    },
+                    "roas": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         }
       ]
     },
@@ -2875,7 +4823,41 @@
             "channel_id",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.get_business_report",
@@ -2941,7 +4923,41 @@
             "channel_id",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.get_feedback_monitoring",
@@ -3007,7 +5023,41 @@
             "channel_id",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.get_followup_monitoring_list",
@@ -3073,7 +5123,41 @@
             "channel_id",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.get_hijacked_record",
@@ -3131,7 +5215,41 @@
             "channel_id",
             "status",
             "modified_time"
-          ]
+          ],
+          "responseSchema": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "data": {
+                "items": {
+                  "properties": {
+                    "asin": {
+                      "type": "string"
+                    },
+                    "channel_id": {
+                      "type": "string"
+                    },
+                    "modified_time": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
         },
         {
           "name": "v1.open_goods.get_reviews_list",

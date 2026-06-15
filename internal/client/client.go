@@ -131,7 +131,7 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		}
 		result, err := decodeResponse(resp)
 		if resp.StatusCode == http.StatusTooManyRequests {
-			lastErr = &StatusError{StatusCode: resp.StatusCode, Body: result, Retryable: true}
+			lastErr = &StatusError{StatusCode: resp.StatusCode, Body: result, Retryable: true, RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After"))}
 			continue
 		}
 		if resp.StatusCode >= 400 {
@@ -142,7 +142,11 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		}
 		return result, nil
 	}
-	return nil, &Error{Kind: "rate_limit", Err: lastErr}
+	retryAfter := time.Duration(0)
+	if se, ok := lastErr.(*StatusError); ok {
+		retryAfter = se.RetryAfter
+	}
+	return nil, &Error{Kind: "rate_limit", Err: lastErr, Retryable: true, RetryAfter: retryAfter}
 }
 
 func (c *Client) LastRateLimitWait() time.Duration {
@@ -193,6 +197,36 @@ func (c *Client) waitCrossProcess(ctx context.Context) (time.Duration, error) {
 	return time.Since(start), nil
 }
 
+func RateLimitStatus(cfg *core.Config) (map[string]any, error) {
+	dir, err := core.ConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	stateFile := filepath.Join(dir, "rate_limiter.next")
+	out := map[string]any{
+		"rate_limit_per_minute": cfg.RateLimit,
+		"state_file":            stateFile,
+	}
+	if cfg.RateLimit <= 0 {
+		out["rate_limit_per_minute"] = core.DefaultRate
+	}
+	if b, err := os.ReadFile(stateFile); err == nil {
+		if n, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64); err == nil && n > 0 {
+			next := time.Unix(0, n)
+			wait := time.Until(next)
+			if wait < 0 {
+				wait = 0
+			}
+			out["next_request_at"] = next.Format(time.RFC3339Nano)
+			out["wait_ms"] = wait.Milliseconds()
+			return out, nil
+		}
+	}
+	out["next_request_at"] = ""
+	out["wait_ms"] = 0
+	return out, nil
+}
+
 func decodeResponse(resp *http.Response) (map[string]any, error) {
 	defer resp.Body.Close()
 	b, err := io.ReadAll(resp.Body)
@@ -238,6 +272,9 @@ func (e *StatusError) APICode() any {
 	if e == nil || e.Body == nil {
 		return nil
 	}
+	if v, ok := e.Body["error"]; ok {
+		return v
+	}
 	return e.Body["code"]
 }
 
@@ -251,7 +288,27 @@ func (e *StatusError) APIMessage() string {
 	if msg, ok := e.Body["message"].(string); ok {
 		return msg
 	}
+	if msg, ok := e.Body["error_description"].(string); ok {
+		return msg
+	}
 	return ""
+}
+
+func parseRetryAfter(v string) time.Duration {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0
+	}
+	if seconds, err := strconv.Atoi(v); err == nil && seconds >= 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	if when, err := http.ParseTime(v); err == nil {
+		wait := time.Until(when)
+		if wait > 0 {
+			return wait
+		}
+	}
+	return 0
 }
 
 func isStatus(err error, code int) bool {

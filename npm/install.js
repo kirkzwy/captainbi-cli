@@ -30,8 +30,8 @@ const dest = path.join(outDir, `cbi${binExt}`);
 
 try {
   fs.mkdirSync(outDir, { recursive: true });
-  execFileSync("curl", ["--fail", "--location", "--silent", "--show-error", "--output", archive, url], { stdio: "inherit" });
-  execFileSync("curl", ["--fail", "--location", "--silent", "--show-error", "--output", checksums, `${base}/v${version}/checksums.txt`], { stdio: "inherit" });
+  execFileSync("curl", curlArgs(url, archive), { stdio: "inherit" });
+  execFileSync("curl", curlArgs(`${base}/v${version}/checksums.txt`, checksums), { stdio: "inherit" });
   verifyChecksum(checksums, archiveName, archive);
   if (process.platform === "win32") {
     execFileSync("powershell", ["-Command", `Expand-Archive -Path '${archive}' -DestinationPath '${tmp}'`], { stdio: "inherit" });
@@ -48,6 +48,17 @@ try {
   process.exit(1);
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
+}
+
+function curlArgs(url, output) {
+  const args = ["--fail", "--location", "--silent", "--show-error", "--output", output];
+  const token = process.env.CAPTAINBI_CLI_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+  if (token) {
+    args.push("--header", `Authorization: Bearer ${token}`);
+    args.push("--header", "X-GitHub-Api-Version: 2022-11-28");
+  }
+  args.push(url);
+  return args;
 }
 
 function verifyChecksum(checksumsPath, archiveName, archivePath) {

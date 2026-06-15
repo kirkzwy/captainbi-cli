@@ -4,12 +4,13 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 
 ## 当前状态
 
-项目目前处于可运行的初版骨架阶段：
+项目目前处于 Agent-ready 早期可用阶段：
 
 - Go + Cobra 单二进制 CLI。
 - 使用 `OpenAPI -> Registry 元数据 -> 业务域命令` 的生成架构。
 - 已接入 CaptainBI OpenAPI 当前 65 个接口元数据。
-- 内置 token 缓存、敏感信息脱敏、20 次/分钟限流和 429 退避重试。
+- 内置 token 缓存、`scope=all` token 请求、敏感信息脱敏、20 次/分钟限流和 429 退避重试。
+- 已完成真实只读 smoke：认证、站点、店铺、商品、订单、财务、广告、FBA、Review。
 - 已提供通用 `api`、业务域命令、快捷命令、`schema` 和 `doctor` 命令。
 
 接口按 6 个业务域组织：
@@ -32,7 +33,8 @@ go build -o bin/cbi .
 # 配置凭证。不要通过普通命令行参数传递 client_secret。
 printf '%s' "$CAPTAINBI_CLIENT_SECRET" | ./bin/cbi config init \
   --client-id "$CAPTAINBI_CLIENT_ID" \
-  --client-secret-stdin
+  --client-secret-stdin \
+  --non-interactive
 
 # 获取并缓存 token
 ./bin/cbi auth token
@@ -41,6 +43,8 @@ printf '%s' "$CAPTAINBI_CLIENT_SECRET" | ./bin/cbi config init \
 ./bin/cbi +sites
 ./bin/cbi +shops
 ```
+
+> 如果在 Codex/Agent 环境中使用，不要假设外部终端的 `export` 会进入 Agent 进程。推荐用上面的 `--client-secret-stdin` 写入本机 keychain，或用 `--client-secret-file` / `CAPTAINBI_ACCESS_TOKEN`。
 
 ## 命令层级
 
@@ -51,9 +55,16 @@ printf '%s' "$CAPTAINBI_CLIENT_SECRET" | ./bin/cbi config init \
 ```bash
 cbi +shops
 cbi +sites
-cbi +orders --open-channel-id oc_xxx
-cbi +goods --open-channel-id oc_xxx
-cbi +finance-daily --open-channel-id oc_xxx
+cbi +orders --channel main --start 1781424057 --end 1781510457
+cbi +goods --channel main --modified-since 1781424057 --modified-until 1781510457
+cbi +finance-daily --channel main --date 20260615
+```
+
+从 `+shops` 获取 `open_channel_id` 后，建议保存为别名：
+
+```bash
+cbi config channels add main '<open_channel_id>'
+cbi config channels list
 ```
 
 ### 2. 业务域命令
@@ -107,6 +118,11 @@ cbi schema goods.list --jq '.params'
 | `--page-all` | 自动分页，当前完整支持 `page_rows` 类型 |
 | `--page-limit` | 自动分页的最大页数，默认 10 |
 | `--page-delay` | 自动分页的页间延迟，默认 3000ms |
+| `--max-records` | 自动分页最多返回多少条 |
+| `--resume-from-page` | 从指定页继续自动分页 |
+| `--summary` | 只输出行数和字段列表，适合 Agent 探测数据规模 |
+| `--output-file` | 将完整结果写入文件，stdout 只返回文件路径和行数 |
+| `--channel` | 使用 `config channels` 中的店铺别名，也可用 `all` |
 | `--confirm` | 确认执行危险写入或同步类接口 |
 | `--rate-limit` | 覆盖默认限流，单位为请求数/分钟 |
 
@@ -119,6 +135,7 @@ cbi schema goods.list --jq '.params'
 | `CAPTAINBI_BASE_URL` | API 域名，默认 `https://openapi.captainbi.com` |
 | `CAPTAINBI_OPEN_CHANNEL_ID` | 默认店铺密钥 |
 | `CAPTAINBI_RATE_LIMIT` | 请求限流，默认 20 次/分钟 |
+| `CAPTAINBI_ACCESS_TOKEN` | 直接注入已有 access token，跳过 token 获取 |
 
 ## 安全策略
 
@@ -151,6 +168,25 @@ cbi doctor local --machine
 cbi doctor contract --sample 5
 ```
 
+## 真实 Smoke
+
+只读 smoke 不会写入 CaptainBI 数据：
+
+```bash
+go build -buildvcs=false -o bin/cbi .
+CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
+```
+
+错误契约和真实行为记录见 `docs/contract-notes.md`。
+
+## Agent 使用建议
+
+- 默认使用 `--machine --format json`。
+- 大数据任务先用 `--summary` 判断规模，再用 `--output-file` 保存完整数据。
+- 店铺级接口优先使用 `--channel <alias>`，不要在日志中输出原始 OpenChannelId。
+- 失败时读取 `error_code`、`kind`、`hint`、`api_code`、`api_msg` 来决定是否重试或补参数。
+- `page_rows` 分页不强依赖 CaptainBI 返回总数字段；以 `len(data) < rows` 作为主要结束条件。
+
 ## 开发
 
 ```bash
@@ -171,7 +207,7 @@ go build -o bin/cbi .
 
 ## 当前限制
 
-- `--page-all` 当前完整支持 `page_rows` 分页。
+- `--page-all` 当前完整支持 `page_rows` 分页，并支持 `--max-records` 和 `--resume-from-page`。
 - `modified_time_window` 和 `report_date` 已进入 Registry，但目前仍按单次请求执行。
 - POST 接口第一版统一使用 `--data` JSON，还没有做字段级 flags。
 - npm/goreleaser 发布链路已配置骨架，尚未正式发布 release。

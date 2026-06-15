@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kirkzwy/captainbi-cli/internal/auth"
 	"github.com/kirkzwy/captainbi-cli/internal/client"
 	"github.com/kirkzwy/captainbi-cli/internal/core"
 	outfmt "github.com/kirkzwy/captainbi-cli/internal/output"
@@ -40,7 +41,7 @@ func resolveChannels(cfg *core.Config, direct string, required bool) ([]channelT
 	if globals.channel != "" {
 		if globals.channel == "all" {
 			if len(cfg.Channels) == 0 {
-				return nil, typed("business", "no configured channel aliases; run `cbi config channels add <alias> <open-channel-id>`")
+				return nil, typedH("business", "no configured channel aliases; run `cbi config channels add <alias> <open-channel-id>`", "run cbi +shops to discover OpenChannelId, then cbi config channels add <alias> <open-channel-id>")
 			}
 			aliases := make([]string, 0, len(cfg.Channels))
 			for alias := range cfg.Channels {
@@ -62,7 +63,7 @@ func resolveChannels(cfg *core.Config, direct string, required bool) ([]channelT
 		return []channelTarget{{Alias: "default", ID: cfg.OpenChannelID}}, nil
 	}
 	if required {
-		return nil, typed("business", "OpenChannelId is required; pass --open-channel-id, --channel, --channel-file, or configure CAPTAINBI_OPEN_CHANNEL_ID")
+		return nil, typedH("business", "OpenChannelId is required; pass --open-channel-id, --channel, --channel-file, or configure CAPTAINBI_OPEN_CHANNEL_ID", "run cbi +shops, then pass --channel <alias> or --open-channel-id <id>")
 	}
 	return []channelTarget{{}}, nil
 }
@@ -106,7 +107,7 @@ func loadChannelFile(path string) ([]channelTarget, error) {
 		}
 		return targets, nil
 	}
-	return nil, typed("business", "channel file must be JSON object, array of strings, or array of {alias,open_channel_id}")
+	return nil, typedH("business", "channel file must be JSON object, array of strings, or array of {alias,open_channel_id}", "use {\"alias\":\"open_channel_id\"} or [{\"alias\":\"main\",\"open_channel_id\":\"...\"}]")
 }
 
 func channelResult(target channelTarget, resp map[string]any, err error) map[string]any {
@@ -276,6 +277,10 @@ func errorCode(err error) string {
 	if errors.As(err, &te) {
 		return strings.ToUpper(te.kind)
 	}
+	var ae *auth.TokenError
+	if errors.As(err, &ae) && ae.ErrorCode != "" {
+		return strings.ToUpper(ae.ErrorCode)
+	}
 	var ce *client.Error
 	if errors.As(err, &ce) {
 		return strings.ToUpper(ce.Kind)
@@ -303,6 +308,13 @@ func retryFields(err error) (bool, int64) {
 }
 
 func apiErrorFields(err error) (any, string) {
+	var ae *auth.TokenError
+	if errors.As(err, &ae) {
+		if ae.ErrorCode != "" || ae.ErrorDescription != "" {
+			return ae.ErrorCode, ae.ErrorDescription
+		}
+		return ae.Code, ae.Msg
+	}
 	var se *client.StatusError
 	if errors.As(err, &se) {
 		return se.APICode(), se.APIMessage()
@@ -312,6 +324,48 @@ func apiErrorFields(err error) (any, string) {
 		return apiErrorFields(ce.Unwrap())
 	}
 	return nil, ""
+}
+
+func hintForError(err error) string {
+	var te *typedErr
+	if errors.As(err, &te) {
+		return te.Hint()
+	}
+	var ae *auth.TokenError
+	if errors.As(err, &ae) {
+		if ae.ErrorCode == "invalid_client" {
+			return "verify CaptainBI APPID/client_secret and ensure token requests include scope=all; this CLI sends scope=all automatically"
+		}
+		return "refresh credentials with cbi config init --client-secret-stdin"
+	}
+	var ce *client.Error
+	if errors.As(err, &ce) {
+		switch ce.Kind {
+		case "auth":
+			if hint := hintForError(ce.Unwrap()); hint != "" {
+				return hint
+			}
+			return "run cbi auth status --machine, then refresh credentials with cbi config init --client-secret-stdin"
+		case "rate_limit":
+			return "retry after retry_after_ms or reduce --rate-limit"
+		case "network":
+			return "retry later and check network connectivity"
+		}
+		return hintForError(ce.Unwrap())
+	}
+	var se *client.StatusError
+	if errors.As(err, &se) {
+		if se.StatusCode == 429 {
+			return "retry after retry_after_ms or reduce request frequency"
+		}
+		if se.StatusCode == 401 || se.StatusCode == 403 {
+			return "refresh credentials with cbi auth token"
+		}
+		if se.StatusCode >= 500 {
+			return "retry later; CaptainBI returned a server error"
+		}
+	}
+	return ""
 }
 
 func requestID(err error) string {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,6 +24,27 @@ type TokenResponse struct {
 		TokenType   string `json:"token_type"`
 		ExpiresIn   int    `json:"expires_in"`
 	} `json:"data"`
+}
+
+type TokenError struct {
+	StatusCode       int
+	ErrorCode        string `json:"error"`
+	ErrorDescription string `json:"error_description"`
+	Code             any    `json:"code"`
+	Msg              string `json:"msg"`
+}
+
+func (e *TokenError) Error() string {
+	if e.ErrorDescription != "" {
+		return e.ErrorDescription
+	}
+	if e.Msg != "" {
+		return e.Msg
+	}
+	if e.ErrorCode != "" {
+		return e.ErrorCode
+	}
+	return fmt.Sprintf("token request failed with http %d", e.StatusCode)
 }
 
 func GetToken(ctx context.Context, cfg *core.Config, force bool) (string, error) {
@@ -52,7 +75,13 @@ func GetToken(ctx context.Context, cfg *core.Config, force bool) (string, error)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return "", errors.New("token request failed")
+		body, _ := io.ReadAll(resp.Body)
+		tokenErr := &TokenError{StatusCode: resp.StatusCode}
+		_ = json.Unmarshal(body, tokenErr)
+		if tokenErr.ErrorCode == "" && tokenErr.Code == nil && tokenErr.Msg == "" && tokenErr.ErrorDescription == "" {
+			tokenErr.ErrorDescription = "token request failed"
+		}
+		return "", tokenErr
 	}
 	var tr TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tr); err != nil {

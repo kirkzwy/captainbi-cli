@@ -123,6 +123,7 @@ func requestJSONSchema(m registry.Method) map[string]any {
 	if m.Pagination.Type != "none" {
 		properties["page_all"] = map[string]any{"type": "boolean", "description": "Fetch all supported pages.", "default": false}
 		properties["max_records"] = map[string]any{"type": "integer", "description": "Stop after this many records.", "minimum": 1}
+		properties["resume_from_page"] = map[string]any{"type": "integer", "description": "Start page when resuming a page_all request.", "minimum": 1, "default": 1}
 	}
 	out := map[string]any{
 		"type":                 "object",

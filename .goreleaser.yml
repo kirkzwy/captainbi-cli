@@ -8,6 +8,10 @@ builds:
     binary: cbi
     goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
+    flags:
+      - -buildvcs=false
+    ldflags:
+      - "-s -w -X github.com/kirkzwy/captainbi-cli/cmd.version={{ .Version }}"
 
 archives:
   - id: default

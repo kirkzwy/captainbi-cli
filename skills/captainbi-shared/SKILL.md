@@ -1,28 +1,52 @@
 ---
 name: captainbi-shared
-description: CaptainBI CLI shared rules for authentication, rate limits, output and safety.
+description: CaptainBI CLI shared rules for authentication, channels, output parsing, errors, rate limits and safety.
 ---
 
 # CaptainBI Shared
 
-Always use `cbi` for CaptainBI OpenAPI work.
+Use this skill before any CaptainBI domain skill.
+
+## WHEN
+
+Use `cbi` when the task needs CaptainBI/OpenAPI data: shops, sites, goods, orders, finance, FBA, ads, reviews, feedback, monitoring, or CaptainBI-generated business reports.
+
+## WHEN NOT
+
+Do not use CaptainBI for Amazon SP-API-only tasks, logistics files, Feishu-only records, or write/sync operations unless the user explicitly asks for CaptainBI changes.
 
 ## Authentication
 
-1. Configure credentials with `cbi config init --client-id <id> --client-secret-stdin`.
-2. Fetch a token with `cbi auth token`.
-3. Use `cbi +shops` to discover `OpenChannelId` for store-scoped APIs.
+- Configure once: `printf '%s' '<CAPTAINBI_CLIENT_SECRET>' | cbi config init --client-id '<CAPTAINBI_CLIENT_ID>' --client-secret-stdin --non-interactive`.
+- Token requests require `scope=all`; the CLI sends it automatically.
+- Check status: `cbi auth status --machine`.
+- If auth fails, read `hint`, then refresh credentials with `cbi config init --client-secret-stdin`.
 
-## Rate Limit
+## Channels
 
-CaptainBI free API limit is 20 requests per minute. Prefer shortcuts and
-`--page-all`; the CLI rate limits requests and retries 429 responses.
+- Discover stores: `cbi +shops --machine --format json`.
+- Save aliases: `cbi config channels add <alias> <open_channel_id>`.
+- Prefer `--channel <alias>` for daily work.
+- Use `--channel all` only after aliases are configured.
+- Avoid printing raw OpenChannelId in user-visible logs.
+
+## Output
+
+- Use `--machine --format json` for Agent calls.
+- For large data, first run `--summary`; then use `--output-file` for full data.
+- On failure, parse `error_code`, `kind`, `hint`, `api_code`, `api_msg`, `request_id`, `retryable`.
+- For pagination, prefer `--page-all --max-records <n>`; resume with `--resume-from-page <page>`.
 
 ## Safety
 
-Use `--dry-run` before write commands. Dangerous write commands require
-`--confirm`; sync commands require `--confirm` and may trigger external state.
+- Read operations are safe.
+- Write operations require explicit user intent.
+- Use `--dry-run` before any POST.
+- `write_dangerous` and `sync_trigger` require `--confirm`.
+- Never output token, client_secret, authorization header, or raw OpenChannelId.
 
-## Agent Mode
+## Rate Limits
 
-Use `--machine --format json` for pure JSON output.
+- Default local limit is 20 req/min.
+- Inspect local state: `cbi rate-limit status --machine`.
+- If `retryable=true`, wait according to `retry_after_ms` when present.

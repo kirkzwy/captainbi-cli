@@ -1,6 +1,6 @@
 {
   "name": "captainbi-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CaptainBI OpenAPI command-line client",
   "bin": {
     "cbi": "npm/run.js",

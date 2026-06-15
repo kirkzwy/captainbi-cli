@@ -159,7 +159,7 @@ func buildRegistry(source string, s spec) registry {
 		}
 	}
 	order := []string{"goods", "sales", "finance", "fba", "ads", "monitor"}
-	reg := registry{Version: "0.1.0", Source: source}
+	reg := registry{Version: "0.2.0", Source: source}
 	for _, name := range order {
 		sort.Slice(services[name].Methods, func(i, j int) bool {
 			return services[name].Methods[i].CommandName < services[name].Methods[j].CommandName
@@ -312,19 +312,6 @@ func tableColumnsFor(domain, path string) []string {
 }
 
 func responseSchemaFor(domain, path string) any {
-	highFrequency := map[string]bool{
-		"/v1/open_user/get_site_list":                    true,
-		"/v1/open_user/get_channel_list":                 true,
-		"/v1/open_goods/get_goods_list":                  true,
-		"/v1/open_order/get_order_list":                  true,
-		"/v1/open_channel_finance/get_analysis_by_order": true,
-		"/v1/open_cpc/advertise_campaign_report":         true,
-		"/v1/open_fba/inventory_list":                    true,
-		"/v1/open_goods/get_reviews_list":                true,
-	}
-	if !highFrequency[path] {
-		return nil
-	}
 	props := map[string]any{
 		"code": map[string]any{"type": "integer"},
 		"msg":  map[string]any{"type": "string"},

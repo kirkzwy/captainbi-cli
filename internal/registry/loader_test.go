@@ -13,4 +13,9 @@ func TestLoadRegistry(t *testing.T) {
 	if got := len(r.AllMethods()); got != 65 {
 		t.Fatalf("expected 65 methods, got %d", got)
 	}
+	for _, method := range r.AllMethods() {
+		if method.ResponseSchema == nil {
+			t.Fatalf("method %s missing responseSchema", method.Name)
+		}
+	}
 }

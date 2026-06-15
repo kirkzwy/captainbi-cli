@@ -1,0 +1,26 @@
+name: Registry Check
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+jobs:
+  registry-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+      - run: go build -buildvcs=false -o bin/cbi .
+      - run: bin/cbi registry check --machine --format json > /tmp/registry-check.json
+      - run: |
+          cat /tmp/registry-check.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/registry-check.json', 'r', encoding='utf-8') as f:
+              data = json.load(f)
+          if data.get('registry_is_stale'):
+              raise SystemExit('CaptainBI registry is stale; run go run ./tools/gen-registry')
+          PY

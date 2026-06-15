@@ -23,7 +23,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
 
-const version = "0.1.0-dev"
+var version = "0.2.0-dev"
 
 type globalOptions struct {
 	format        string
@@ -47,6 +47,7 @@ type requestOptions struct {
 	pageLimit  int
 	pageDelay  time.Duration
 	maxRecords int
+	resumePage int
 }
 
 var globals globalOptions
@@ -92,6 +93,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(newCompletionCmd(cmd))
 	cmd.AddCommand(newToolsCmd(reg, regErr))
 	cmd.AddCommand(newRegistryCmd(reg, regErr))
+	cmd.AddCommand(newRateLimitCmd())
 	if regErr == nil {
 		registerServiceCommands(cmd, reg)
 		registerShortcuts(cmd)
@@ -140,17 +142,17 @@ func newConfigCmd() *cobra.Command {
 				cfg.PlainSecretHint = "file:" + secretFile
 			}
 			if cfg.ClientID == "" && os.Getenv(core.EnvAccessToken) == "" {
-				return typed("auth", "client_id is required; pass --client-id or set CAPTAINBI_CLIENT_ID")
+				return typedH("auth", "client_id is required; pass --client-id or set CAPTAINBI_CLIENT_ID", "run cbi config init --client-id <CAPTAINBI_CLIENT_ID> --client-secret-stdin --non-interactive")
 			}
 			if secretFromEnv && os.Getenv(core.EnvClientSecret) == "" {
-				return typed("auth", "CAPTAINBI_CLIENT_SECRET is required when using --client-secret-from-env")
+				return typedH("auth", "CAPTAINBI_CLIENT_SECRET is required when using --client-secret-from-env", "export CAPTAINBI_CLIENT_SECRET or use --client-secret-file")
 			}
 			if secretFromEnv {
 				cfg.UsePlainSecret = false
 				cfg.PlainSecretHint = "env:" + core.EnvClientSecret
 			}
 			if nonInteractive && !secretStdin && !secretFromEnv && secretFile == "" && os.Getenv(core.EnvAccessToken) == "" {
-				return typed("auth", "non-interactive init requires --client-secret-stdin, --client-secret-from-env, --client-secret-file, or CAPTAINBI_ACCESS_TOKEN")
+				return typedH("auth", "non-interactive init requires --client-secret-stdin, --client-secret-from-env, --client-secret-file, or CAPTAINBI_ACCESS_TOKEN", "provide one non-interactive secret source")
 			}
 			if secretStdin {
 				b, err := io.ReadAll(cmd.InOrStdin())
@@ -159,10 +161,10 @@ func newConfigCmd() *cobra.Command {
 				}
 				secret := strings.TrimSpace(string(b))
 				if secret == "" {
-					return typed("auth", "client_secret from stdin is empty")
+					return typedH("auth", "client_secret from stdin is empty", "pipe the CaptainBI client_secret into stdin")
 				}
 				if err := core.SaveClientSecret(cfg.ClientID, secret); err != nil {
-					return typed("auth", "failed to save client_secret to keychain: "+err.Error())
+					return typedH("auth", "failed to save client_secret to keychain: "+err.Error(), "use --client-secret-file or CAPTAINBI_CLIENT_SECRET in headless environments")
 				}
 			}
 			if err := core.SaveConfig(cfg); err != nil {
@@ -271,7 +273,7 @@ func newAuthCmd() *cobra.Command {
 				return err
 			}
 			if _, err := auth.GetToken(cmd.Context(), cfg, true); err != nil {
-				return typed("auth", err.Error())
+				return &client.Error{Kind: "auth", Err: err}
 			}
 			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
 				"status":       "ok",
@@ -320,7 +322,7 @@ func newAuthCmd() *cobra.Command {
 func newAPICmd() *cobra.Command {
 	var params, data, paramsFile, dataFile, jq string
 	var dryRun, pageAll, paramsStdin, dataStdin bool
-	var pageLimit, pageDelay, maxRecords int
+	var pageLimit, pageDelay, maxRecords, resumePage int
 	cmd := &cobra.Command{
 		Use:   "api <METHOD> <PATH>",
 		Short: "Call any CaptainBI OpenAPI endpoint",
@@ -331,7 +333,7 @@ func newAPICmd() *cobra.Command {
 				return err
 			}
 			req := client.Request{Method: strings.ToUpper(args[0]), Path: args[1], Query: query, Body: body}
-			return runRequest(cmd, registry.Method{HTTPMethod: req.Method, FullPath: req.Path, RiskLevel: "read", Pagination: registry.Pagination{Type: "none"}}, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords})
+			return runRequest(cmd, registry.Method{HTTPMethod: req.Method, FullPath: req.Path, RiskLevel: "read", Pagination: registry.Pagination{Type: "none"}}, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
 		},
 	}
 	cmd.Flags().StringVar(&params, "params", "", "query parameters JSON; supports - for stdin")
@@ -346,6 +348,7 @@ func newAPICmd() *cobra.Command {
 	cmd.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
 	cmd.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
 	cmd.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
+	cmd.Flags().IntVar(&resumePage, "resume-from-page", 1, "start page for --page-all resume")
 	return cmd
 }
 
@@ -387,6 +390,7 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 				return regErr
 			}
 			dir, _ := core.ConfigDir()
+			rateStatus, _ := client.RateLimitStatus(cfg)
 			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
 				"config_loads":              true,
 				"client_configured":         cfg.ClientID != "",
@@ -399,6 +403,7 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 				"rate_limit_per_minute":     cfg.RateLimit,
 				"rate_limit_lock_file":      dir + "/rate_limiter.lock",
 				"rate_limit_state_file":     dir + "/rate_limiter.next",
+				"rate_limit_wait_ms":        rateStatus["wait_ms"],
 			}, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
 		},
 	})
@@ -452,7 +457,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 			m := method
 			var params, data, paramsFile, dataFile, jq string
 			var dryRun, confirm, yes, pageAll, paramsStdin, dataStdin bool
-			var pageLimit, pageDelay, maxRecords int
+			var pageLimit, pageDelay, maxRecords, resumePage int
 			endpointCmd := &cobra.Command{
 				Use:   m.CommandName,
 				Short: m.Summary,
@@ -465,7 +470,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 						return err
 					}
 					req := client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query, Body: body}
-					return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords})
+					return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
 				},
 			}
 			for _, p := range m.Params {
@@ -491,6 +496,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 			endpointCmd.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
 			endpointCmd.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
 			endpointCmd.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
+			endpointCmd.Flags().IntVar(&resumePage, "resume-from-page", 1, "start page for --page-all resume")
 			svcCmd.AddCommand(endpointCmd)
 		}
 		root.AddCommand(svcCmd)
@@ -529,7 +535,7 @@ func registerShortcuts(root *cobra.Command) {
 				}
 				for _, p := range m.Params {
 					if p.Location == "query" && p.Required && query[p.Name] == "" {
-						return typed("business", "required shortcut flag is missing for "+p.Name)
+						return typedH("business", "required shortcut flag is missing for "+p.Name, "pass the required shortcut flag shown in --help")
 					}
 				}
 				return runRequest(cmd, m, client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query}, requestOptions{})
@@ -581,7 +587,16 @@ func collectEndpointInput(cmd *cobra.Command, m registry.Method, extraParams, da
 			v = defaultString(p.Default)
 		}
 		if p.Required && v == "" {
-			return nil, nil, fmt.Errorf("required flag --%s is missing", p.Flag)
+			return nil, nil, typedH("business", fmt.Sprintf("required flag --%s is missing", p.Flag), "run the command with --help and pass all required flags")
+		}
+		if p.Max > 0 && v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				return nil, nil, typedH("business", fmt.Sprintf("flag --%s must be an integer", p.Flag), "pass a numeric value for this flag")
+			}
+			if n > p.Max {
+				return nil, nil, typedH("business", fmt.Sprintf("flag --%s must be <= %d", p.Flag, p.Max), fmt.Sprintf("use --%s %d or a smaller value", p.Flag, p.Max))
+			}
 		}
 		if v != "" {
 			query[p.Name] = v
@@ -668,23 +683,45 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	if delay <= 0 {
 		delay = 3 * time.Second
 	}
+	startPage := opts.resumePage
+	if startPage <= 0 {
+		startPage = 1
+	}
 	all := []any{}
 	var envelope map[string]any
-	for page := 1; ; page++ {
-		if limit > 0 && page > limit {
+	pagesFetched := 0
+	pagesFailed := 0
+	failedAtPage := 0
+	partialError := ""
+	for page := startPage; ; page++ {
+		if limit > 0 && pagesFetched >= limit {
 			break
 		}
 		req.Query["page"] = strconv.Itoa(page)
 		resp, err := c.Do(ctx, req)
 		if err != nil {
-			return nil, err
+			pagesFailed++
+			failedAtPage = page
+			partialError = err.Error()
+			if len(all) == 0 {
+				return nil, err
+			}
+			break
 		}
+		pagesFetched++
 		if envelope == nil {
 			envelope = resp
 		}
 		data, _ := resp["data"].([]any)
 		if raw, ok := resp["data"]; ok && raw != nil && data == nil {
-			return nil, typed("business", "page_rows response data must be an array")
+			err := typedH("business", "page_rows response data must be an array", "check the endpoint response contract before using --page-all")
+			if len(all) == 0 {
+				return nil, err
+			}
+			pagesFailed++
+			failedAtPage = page
+			partialError = err.Error()
+			break
 		}
 		all = append(all, data...)
 		if opts.maxRecords > 0 && len(all) >= opts.maxRecords {
@@ -710,9 +747,14 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	envelope["data"] = all
 	envelope["page_all"] = true
 	envelope["fetched_rows"] = len(all)
-	envelope["pages_fetched"] = intFrom(req.Query["page"])
-	envelope["pages_failed"] = 0
-	envelope["partial"] = false
+	envelope["pages_fetched"] = pagesFetched
+	envelope["pages_failed"] = pagesFailed
+	envelope["partial"] = pagesFailed > 0
+	if failedAtPage > 0 {
+		envelope["failed_at_page"] = failedAtPage
+		envelope["partial_error"] = security.RedactString(partialError)
+	}
+	envelope["resume_from_page"] = startPage
 	return envelope, nil
 }
 
@@ -741,12 +783,12 @@ func enforceRisk(cmd *cobra.Command, m registry.Method, confirm, yes, dryRun boo
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s is a write operation; continue? [y/N] ", m.CommandName)
 		line, _ := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 		if strings.TrimSpace(strings.ToLower(line)) != "y" {
-			return typed("business", "operation cancelled")
+			return typedH("business", "operation cancelled", "rerun with --yes after confirming the write operation")
 		}
 		return nil
 	}
 	if !confirm {
-		return typed("business", "this operation requires --confirm; use --dry-run to preview")
+		return typedH("confirmation_required", "this operation requires --confirm; use --dry-run to preview", "add --confirm only after the user explicitly approves this write or sync operation")
 	}
 	if m.RiskLevel == "sync_trigger" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "warning: this operation may trigger external CaptainBI/Amazon synchronization")
@@ -841,10 +883,28 @@ func errString(err error) string {
 type typedErr struct {
 	kind string
 	msg  string
+	hint string
 }
 
-func typed(kind, msg string) error { return &typedErr{kind: kind, msg: msg} }
-func (e *typedErr) Error() string  { return e.msg }
+func typed(kind, msg string) error        { return &typedErr{kind: kind, msg: msg, hint: hintFor(kind, msg)} }
+func typedH(kind, msg, hint string) error { return &typedErr{kind: kind, msg: msg, hint: hint} }
+func (e *typedErr) Error() string         { return e.msg }
+func (e *typedErr) Hint() string          { return e.hint }
+func hintFor(kind, msg string) string {
+	switch kind {
+	case "auth":
+		return "run cbi auth status --machine, then refresh credentials with cbi config init --client-secret-stdin"
+	case "rate_limit":
+		return "retry later or lower --rate-limit"
+	case "confirmation_required":
+		return "use --dry-run to preview, then add --confirm after explicit approval"
+	case "business":
+		if strings.Contains(strings.ToLower(msg), "openchannelid") {
+			return "pass --open-channel-id, --channel, --channel-file, or configure CAPTAINBI_OPEN_CHANNEL_ID"
+		}
+	}
+	return ""
+}
 
 func exitCode(err error) int {
 	var te *typedErr
@@ -856,6 +916,8 @@ func exitCode(err error) int {
 			return 3
 		case "rate_limit":
 			return 4
+		case "confirmation_required":
+			return 10
 		default:
 			return 1
 		}
@@ -916,6 +978,7 @@ func writeError(w io.Writer, err error, code int) {
 			"error_code":     errorCode(err),
 			"kind":           kind,
 			"message":        security.RedactString(err.Error()),
+			"hint":           security.RedactString(hintForError(err)),
 			"retryable":      retryable,
 			"retry_after_ms": retryAfterMS,
 			"api_code":       apiCode,
