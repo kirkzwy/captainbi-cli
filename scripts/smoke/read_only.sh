@@ -26,7 +26,20 @@ PY
 )
 
 run() {
-  echo "==> cbi $*" >&2
+  local redacted=()
+  local redact_next=0
+  for arg in "$@"; do
+    if [[ "$redact_next" == "1" ]]; then
+      redacted+=("***")
+      redact_next=0
+      continue
+    fi
+    redacted+=("$arg")
+    if [[ "$arg" == "--open-channel-id" ]]; then
+      redact_next=1
+    fi
+  done
+  echo "==> cbi ${redacted[*]}" >&2
   "$CBI_BIN" --machine --format json --summary "$@"
 }
 

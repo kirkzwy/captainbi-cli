@@ -39,6 +39,7 @@ func GetToken(ctx context.Context, cfg *core.Config, force bool) (string, error)
 	form.Set("grant_type", "client_credentials")
 	form.Set("client_id", cfg.ClientID)
 	form.Set("client_secret", secret)
+	form.Set("scope", "all")
 	endpoint := strings.TrimRight(cfg.BaseURL, "/") + "/oauth2/token"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {

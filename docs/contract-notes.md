@@ -13,12 +13,35 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID=*** scripts/smoke/read_only.sh
 
 | 项目 | 结论 | 备注 |
 | --- | --- | --- |
-| token 结构 | TODO | 确认 `access_token/token_type/expires_in` 是否在顶层或 `data` 内 |
-| 错误结构 | TODO | 确认 CaptainBI `code/msg/request_id` 字段名 |
-| 分页字段 | TODO | 确认 `data` 是否总为数组，`max_result` 是否稳定表示总数 |
-| 时间戳单位 | TODO | 确认 `start_modified_time/end_modified_time` 使用秒还是毫秒 |
-| OpenChannelId 要求 | TODO | 确认各域只读接口是否均需店铺级 OpenChannelId |
-| 429 行为 | TODO | 确认是否返回 `Retry-After` 或业务错误码 |
+| token 请求参数 | 已确认 | `scope=all` 为必填；缺少时 token 接口返回 `invalid_client` |
+| token 结构 | 部分确认 | CLI 可解析并缓存 `token_type=bearer`、约 7200 秒有效期；原始 JSON 层级仍需二次确认 |
+| 错误结构 | 部分确认 | token 缺少 `scope=all` 时返回 OAuth 错误：`error=invalid_client`、`error_description=Invalid client authentication` |
+| 分页字段 | 部分确认 | `goods list` 单页响应 `data` 为数组；该接口未返回 `max_result`，不能强依赖总数字段 |
+| 时间戳单位 | 已确认 | `start_modified_time/end_modified_time` 使用秒级 Unix timestamp 可成功返回数据 |
+| OpenChannelId 要求 | 部分确认 | `+sites`、`+shops` 不需要；goods/sales/finance/ads/fba/monitor 本次 smoke 使用店铺级 OpenChannelId 均成功 |
+| 429 行为 | TODO | 未触发限流；仍需确认是否返回 `Retry-After` 或业务错误码 |
+
+## 2026-06-15 只读 Smoke 结果
+
+执行命令：
+
+```bash
+CAPTAINBI_SMOKE_OPEN_CHANNEL_ID=*** scripts/smoke/read_only.sh
+```
+
+结果摘要：
+
+| 步骤 | 结果 | 行数 |
+| --- | --- | ---: |
+| `auth token` | 成功 | - |
+| `+sites` | 成功 | 23 |
+| `+shops` | 成功 | 1 |
+| `goods list` | 成功 | 20 |
+| `sales orders` | 成功 | 20 |
+| `finance store-daily` | 成功 | 1 |
+| `ads advertise-campaign-report` | 成功 | 0 |
+| `fba inventory` | 成功 | 20 |
+| `monitor reviews` | 成功 | 0 |
 
 ## 已内置保护
 
