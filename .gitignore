@@ -6,3 +6,6 @@ coverage.out
 node_modules/
 npm/bin/
 reference/
+.workbuddy/
+/cbi
+scripts/smoke/*.log
