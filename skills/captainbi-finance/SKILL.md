@@ -6,6 +6,7 @@ description: Finance reports, transactions, VAT, costs, expenses, claims and pro
 # CaptainBI Finance
 
 Read `captainbi-shared` first.
+For task recipes, read `references/workflows.md`.
 
 ## WHEN
 

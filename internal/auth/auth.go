@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -53,6 +54,19 @@ func GetToken(ctx context.Context, cfg *core.Config, force bool) (string, error)
 	}
 	if !force && cfg.AccessToken != "" && time.Until(cfg.TokenExpiry) > time.Minute {
 		return cfg.AccessToken, nil
+	}
+	unlock, err := acquireTokenLock(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer unlock()
+	if !force {
+		if fresh, err := core.LoadConfig(); err == nil && fresh.AccessToken != "" && time.Until(fresh.TokenExpiry) > time.Minute {
+			cfg.AccessToken = fresh.AccessToken
+			cfg.TokenType = fresh.TokenType
+			cfg.TokenExpiry = fresh.TokenExpiry
+			return cfg.AccessToken, nil
+		}
 	}
 	secret, err := core.LoadClientSecret(cfg)
 	if err != nil {
@@ -109,4 +123,25 @@ func GetToken(ctx context.Context, cfg *core.Config, force bool) (string, error)
 	cfg.TokenExpiry = time.Now().Add(time.Duration(expires) * time.Second)
 	_ = core.SaveConfig(cfg)
 	return token, nil
+}
+
+func acquireTokenLock(ctx context.Context) (func(), error) {
+	dir, err := core.ConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
+	lockDir := filepath.Join(dir, "token.lock")
+	for {
+		if err := os.Mkdir(lockDir, 0o700); err == nil {
+			return func() { _ = os.Remove(lockDir) }, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }

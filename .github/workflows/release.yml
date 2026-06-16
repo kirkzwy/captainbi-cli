@@ -26,3 +26,12 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm pack --ignore-scripts
+      - run: npm install --prefix /tmp/cbi-npm-smoke -g ./captainbi-cli-*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: /tmp/cbi-npm-smoke/bin/cbi --version
+      - run: /tmp/cbi-npm-smoke/bin/cbi doctor local --machine

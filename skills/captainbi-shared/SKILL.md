@@ -7,6 +7,15 @@ description: CaptainBI CLI shared rules for authentication, channels, output par
 
 Use this skill before any CaptainBI domain skill.
 
+## References
+
+- `references/agent-quick-start.md`: first-run Agent SOP.
+- `references/auth-setup.md`: credential and token recovery.
+- `references/output-contract.md`: success/error JSON contract.
+- `references/channel-alias.md`: channel alias rules.
+- `references/error-recovery.md`: retry and repair decisions.
+- `references/safety.md`: read-only default and write protection.
+
 ## WHEN
 
 Use `cbi` when the task needs CaptainBI/OpenAPI data: shops, sites, goods, orders, finance, FBA, ads, reviews, feedback, monitoring, or CaptainBI-generated business reports.

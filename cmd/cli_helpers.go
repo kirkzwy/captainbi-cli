@@ -121,8 +121,14 @@ func channelResult(target channelTarget, resp map[string]any, err error) map[str
 		if v, ok := resp["pages_fetched"]; ok {
 			out["pages_fetched"] = v
 		}
+		if v, ok := resp["pages_failed"]; ok {
+			out["pages_failed"] = v
+		}
 		if v, ok := resp["partial"]; ok {
 			out["partial"] = v
+		}
+		if v, ok := resp["rate_limit_wait_ms"]; ok {
+			out["rate_limit_wait_ms"] = v
 		}
 	}
 	if err != nil {
@@ -184,13 +190,86 @@ func writeValue(cmd *cobra.Command, value any, columns []string, jq string) erro
 		if err := f.Close(); err != nil {
 			return err
 		}
-		return outfmt.Write(cmd.OutOrStdout(), map[string]any{
+		view := map[string]any{
 			"ok":          true,
 			"output_file": globals.outputFile,
 			"rows":        rowCount(value),
-		}, outfmt.Options{Format: "json", Machine: globals.machine}, nil)
+		}
+		if agentMode() {
+			return outfmt.Write(cmd.OutOrStdout(), successEnvelope(view), outfmt.Options{Format: "json", Machine: true}, nil)
+		}
+		return outfmt.Write(cmd.OutOrStdout(), view, outfmt.Options{Format: "json", Machine: globals.machine}, nil)
+	}
+	if agentMode() && strings.EqualFold(globals.format, "json") {
+		value = successEnvelope(value)
 	}
 	return outfmt.Write(cmd.OutOrStdout(), value, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, columns)
+}
+
+func agentMode() bool {
+	return globals.machine || os.Getenv("CBI_AGENT") == "1"
+}
+
+func successEnvelope(value any) map[string]any {
+	meta := metaForValue(value)
+	if _, ok := meta["hints"]; !ok {
+		meta["hints"] = []string{}
+	}
+	if _, ok := meta["alerts"]; !ok {
+		meta["alerts"] = []string{}
+	}
+	return map[string]any{
+		"ok":   true,
+		"data": value,
+		"meta": meta,
+	}
+}
+
+func metaForValue(value any) map[string]any {
+	meta := map[string]any{
+		"count":  rowCount(value),
+		"rows":   rowCount(value),
+		"hints":  hintsForValue(value),
+		"alerts": []string{},
+	}
+	if globals.outputFile != "" {
+		meta["output_file"] = globals.outputFile
+	}
+	if m, ok := value.(map[string]any); ok {
+		copyMetaKey(meta, m, "pages_fetched")
+		copyMetaKey(meta, m, "pages_failed")
+		copyMetaKey(meta, m, "partial")
+		copyMetaKey(meta, m, "rate_limit_wait_ms")
+		copyMetaKey(meta, m, "channel")
+		if channels, ok := m["channels"].([]map[string]any); ok {
+			meta["channels"] = len(channels)
+		} else if channels, ok := m["channels"].([]any); ok {
+			meta["channels"] = len(channels)
+		}
+	}
+	return meta
+}
+
+func copyMetaKey(meta, src map[string]any, key string) {
+	if v, ok := src[key]; ok {
+		meta[key] = v
+	}
+}
+
+func hintsForValue(value any) []string {
+	hints := []string{}
+	if m, ok := value.(map[string]any); ok {
+		if partial, _ := m["partial"].(bool); partial {
+			hints = append(hints, "result is partial; use failed_at_page/resume_from_page with --resume-from-page to continue")
+		}
+		if outputFile := fmt.Sprint(m["output_file"]); outputFile != "" && outputFile != "<nil>" {
+			hints = append(hints, "data was written to output_file; read that file for full rows")
+		}
+	}
+	if globals.outputFile == "" && rowCount(value) > 1000 {
+		hints = append(hints, "large output detected; prefer --format ndjson --output-file <file>")
+	}
+	return hints
 }
 
 func prepareValue(value any) any {
@@ -221,9 +300,13 @@ func prepareValue(value any) any {
 func summarizeValue(value any) map[string]any {
 	rows := rowsFromAny(value)
 	fields := map[string]int{}
+	channels := map[string]int{}
 	for _, row := range rows {
 		for key := range row {
 			fields[key]++
+		}
+		if channel, ok := row["channel"].(string); ok && channel != "" {
+			channels[channel]++
 		}
 	}
 	keys := make([]string, 0, len(fields))
@@ -231,11 +314,24 @@ func summarizeValue(value any) map[string]any {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	return map[string]any{
+	out := map[string]any{
 		"ok":     true,
 		"rows":   len(rows),
 		"fields": keys,
 	}
+	if len(channels) > 0 {
+		out["channels"] = channels
+	}
+	if m, ok := value.(map[string]any); ok {
+		copyMetaKey(out, m, "pages_fetched")
+		copyMetaKey(out, m, "pages_failed")
+		copyMetaKey(out, m, "partial")
+		copyMetaKey(out, m, "failed_at_page")
+		copyMetaKey(out, m, "rate_limit_wait_ms")
+		copyMetaKey(out, m, "page_all")
+		copyMetaKey(out, m, "output_file")
+	}
+	return out
 }
 
 func rowCount(value any) int {

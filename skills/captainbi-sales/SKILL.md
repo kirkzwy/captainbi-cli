@@ -6,6 +6,7 @@ description: Sales, orders, returns, refunds and FBM shipping commands for Capta
 # CaptainBI Sales
 
 Read `captainbi-shared` first.
+For task recipes, read `references/workflows.md`.
 
 ## WHEN
 

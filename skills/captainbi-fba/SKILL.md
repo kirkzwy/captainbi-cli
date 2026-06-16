@@ -6,6 +6,7 @@ description: FBA inventory, fees, shipments and monitor commands for CaptainBI C
 # CaptainBI FBA
 
 Read `captainbi-shared` first.
+For task recipes, read `references/workflows.md`.
 
 ## WHEN
 

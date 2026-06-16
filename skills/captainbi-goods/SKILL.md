@@ -6,6 +6,7 @@ description: Goods, shops, sites, tags, groups, SKU and ASIN commands for Captai
 # CaptainBI Goods
 
 Read `captainbi-shared` first.
+For task recipes, read `references/workflows.md`.
 
 ## WHEN
 

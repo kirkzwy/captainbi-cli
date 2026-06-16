@@ -12,6 +12,7 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 - 内置 token 缓存、`scope=all` token 请求、敏感信息脱敏、20 次/分钟限流和 429 退避重试。
 - 已完成真实只读 smoke：认证、站点、店铺、商品、订单、财务、广告、FBA、Review。
 - 已提供通用 `api`、业务域命令、快捷命令、`schema` 和 `doctor` 命令。
+- 已具备 GitHub Release / npm wrapper / Agent Skills 骨架，下一步以 npm 正式分发和 Skills 一键安装为主。
 
 接口按 6 个业务域组织：
 
@@ -24,27 +25,42 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 | 广告数据 | `cbi ads` | 18 |
 | 监控与口碑 | `cbi monitor` | 6 |
 
-## 快速开始
+## Agent 快速开始
 
 ```bash
-# 需要先安装 Go 1.23+
-go build -o bin/cbi .
+# 普通 Agent / 干净机器优先使用 npm 安装
+npm install -g captainbi-cli
+cbi --version
+
+# 如果环境支持 skills installer，加载 CaptainBI skills
+npx skills add kirkzwy/captainbi-cli -y -g
 
 # 配置凭证。不要通过普通命令行参数传递 client_secret。
-printf '%s' "$CAPTAINBI_CLIENT_SECRET" | ./bin/cbi config init \
+printf '%s' "$CAPTAINBI_CLIENT_SECRET" | cbi config init \
   --client-id "$CAPTAINBI_CLIENT_ID" \
   --client-secret-stdin \
   --non-interactive
 
 # 获取并缓存 token
-./bin/cbi auth token
+cbi auth token --machine --format json
 
 # 查看站点和店铺
-./bin/cbi +sites
-./bin/cbi +shops
+cbi +sites --machine --format json
+cbi +shops --machine --format json
+
+# 保存店铺别名后跑第一个只读任务
+cbi config channels add main '<open_channel_id>'
+cbi doctor local --machine --format json
+cbi --channel main +goods --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
 ```
 
 > 如果在 Codex/Agent 环境中使用，不要假设外部终端的 `export` 会进入 Agent 进程。推荐用上面的 `--client-secret-stdin` 写入本机 keychain，或用 `--client-secret-file` / `CAPTAINBI_ACCESS_TOKEN`。
+
+源码构建仅作为开发路径：
+
+```bash
+go build -buildvcs=false -o bin/cbi .
+```
 
 ## 命令层级
 
@@ -182,9 +198,11 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 ## Agent 使用建议
 
 - 默认使用 `--machine --format json`。
+- 也可以设置 `CBI_AGENT=1`，让错误输出默认进入机器友好 JSON。
 - 大数据任务先用 `--summary` 判断规模，再用 `--output-file` 保存完整数据。
 - 店铺级接口优先使用 `--channel <alias>`，不要在日志中输出原始 OpenChannelId。
-- 失败时读取 `error_code`、`kind`、`hint`、`api_code`、`api_msg` 来决定是否重试或补参数。
+- 成功输出读取 `ok/data/meta`；失败输出读取 `ok/error/meta`。
+- 失败时优先读取 `error.kind`、`error.subtype`、`error.hint`、`error.api_code`、`error.api_msg` 来决定是否重试或补参数。
 - `page_rows` 分页不强依赖 CaptainBI 返回总数字段；以 `len(data) < rows` 作为主要结束条件。
 
 ## 开发
@@ -210,4 +228,4 @@ go build -o bin/cbi .
 - `--page-all` 当前完整支持 `page_rows` 分页，并支持 `--max-records` 和 `--resume-from-page`。
 - `modified_time_window` 和 `report_date` 已进入 Registry，但目前仍按单次请求执行。
 - POST 接口第一版统一使用 `--data` JSON，还没有做字段级 flags。
-- npm/goreleaser 发布链路已配置骨架，尚未正式发布 release。
+- npm/goreleaser 发布链路已配置；正式 npm 包发布后，Agent 主路径使用 `npm install -g captainbi-cli`。

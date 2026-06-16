@@ -6,6 +6,7 @@ description: Advertising structure and report commands for CaptainBI CLI.
 # CaptainBI Ads
 
 Read `captainbi-shared` first.
+For task recipes, read `references/workflows.md`.
 
 ## WHEN
 

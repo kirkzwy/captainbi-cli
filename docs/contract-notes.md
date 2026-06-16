@@ -68,3 +68,38 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID=*** scripts/smoke/read_only.sh
 - `scripts/smoke/read_only.sh` 只调用只读接口。
 - 输出默认使用 `--summary`，不输出完整业务明细。
 - 凭证和 OpenChannelId 只从环境变量或本地配置读取，不进入仓库。
+
+## 2026-06-16 Agent Output Contract v1
+
+已在 CLI 本地单测中固定：
+
+- Agent 推荐使用 `--machine --format json`。
+- `CBI_AGENT=1` 时，错误输出也会进入机器友好 JSON。
+- 成功响应在 Agent 模式下输出：
+  - `ok=true`
+  - `data`
+  - `meta.hints`
+  - `meta.alerts`
+  - `meta.count`
+  - `meta.rows`
+  - 可选 `meta.pages_fetched/pages_failed/partial/rate_limit_wait_ms/channel/output_file`
+- 失败响应在 Agent 模式下输出：
+  - `ok=false`
+  - `error.kind`
+  - `error.subtype`
+  - `error.message`
+  - `error.hint`
+  - `error.retryable`
+  - `error.retry_after_ms`
+  - `error.api_code`
+  - `error.api_msg`
+  - `error.request_id`
+  - `meta.exit_code`
+- 为兼容旧调用，`error_code/kind/message/hint/api_code/api_msg` 仍保留在顶层。
+
+仍需人工真实验证：
+
+- CaptainBI 业务接口是否稳定返回 `request_id` 或等价 trace 字段。
+- 更多业务错误是否全部遵循 `code/msg`。
+- 真实 429 是否带 `Retry-After`。
+- 多 Agent 并发长任务下，token lock 与跨进程 rate-limit 是否符合预期。

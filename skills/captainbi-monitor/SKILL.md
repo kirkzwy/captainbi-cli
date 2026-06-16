@@ -6,6 +6,7 @@ description: Review, feedback, bad review and hijack monitoring commands for Cap
 # CaptainBI Monitor
 
 Read `captainbi-shared` first.
+For task recipes, read `references/workflows.md`.
 
 ## WHEN
 

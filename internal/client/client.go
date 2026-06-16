@@ -203,8 +203,10 @@ func RateLimitStatus(cfg *core.Config) (map[string]any, error) {
 		return nil, err
 	}
 	stateFile := filepath.Join(dir, "rate_limiter.next")
+	lockFile := filepath.Join(dir, "rate_limiter.lock")
 	out := map[string]any{
 		"rate_limit_per_minute": cfg.RateLimit,
+		"lock_file":             lockFile,
 		"state_file":            stateFile,
 	}
 	if cfg.RateLimit <= 0 {

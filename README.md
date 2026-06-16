@@ -16,8 +16,12 @@ This repository is an early Agent-ready CaptainBI CLI:
 ## Quick Start
 
 ```bash
-# Build from source after installing Go 1.24+
-go build -buildvcs=false -o bin/cbi .
+# Preferred Agent path
+npm install -g captainbi-cli
+cbi --version
+
+# Optional skill installation when the host supports it
+npx skills add kirkzwy/captainbi-cli -y -g
 
 # Configure credentials. Do not pass secrets as command-line flags.
 printf '%s' "$CAPTAINBI_CLIENT_SECRET" | cbi config init \
@@ -29,6 +33,14 @@ cbi auth token
 cbi +sites
 cbi +shops
 cbi config channels add main '<open_channel_id>'
+cbi doctor local --machine --format json
+cbi --channel main +goods --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
+```
+
+Build from source only for development:
+
+```bash
+go build -buildvcs=false -o bin/cbi .
 ```
 
 ## Command Layers
@@ -77,10 +89,12 @@ cbi tools export --format openai
 ## Agent Usage
 
 - Use `--machine --format json` for structured output.
+- Use `CBI_AGENT=1` when the host should receive machine-friendly errors by default.
 - Use `--summary` before large pulls; use `--output-file` for full data.
 - Page-all for `page_rows` endpoints stops on `len(data) < rows`; `max_result` is optional.
 - Resume long pulls with `--resume-from-page`.
-- Read `error_code`, `kind`, `hint`, `api_code` and `api_msg` on failures.
+- Success output uses `ok/data/meta`; failure output uses `ok/error/meta`.
+- Read `error.kind`, `error.subtype`, `error.hint`, `error.api_code` and `error.api_msg` on failures.
 
 ## Development
 

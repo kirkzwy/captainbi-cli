@@ -44,7 +44,9 @@ try {
   console.log(`captainbi-cli v${version} installed`);
 } catch (err) {
   console.error(`Failed to install cbi: ${err.message}`);
-  console.error("For local development, run `go build -o npm/bin/cbi .` before using the npm wrapper.");
+  console.error("Recovery: verify the GitHub release asset exists for this version, then retry npm install.");
+  console.error("If GitHub rate limits or private access apply, set CAPTAINBI_CLI_GITHUB_TOKEN or GITHUB_TOKEN.");
+  console.error("For local development, run `go build -buildvcs=false -o npm/bin/cbi .` before using the npm wrapper.");
   process.exit(1);
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });

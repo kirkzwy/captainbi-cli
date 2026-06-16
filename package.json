@@ -1,7 +1,11 @@
 {
   "name": "captainbi-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "CaptainBI OpenAPI command-line client",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kirkzwy/captainbi-cli.git"
+  },
   "bin": {
     "cbi": "npm/run.js",
     "captainbi": "npm/run.js"
@@ -12,7 +16,11 @@
   "files": [
     "npm/install.js",
     "npm/run.js",
+    "skills",
+    "docs/endpoints.md",
+    "docs/contract-notes.md",
     "README.md",
+    "README.zh.md",
     "LICENSE"
   ],
   "license": "MIT"

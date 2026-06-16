@@ -23,7 +23,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
 
-var version = "0.2.0-dev"
+var version = "0.2.1-dev"
 
 type globalOptions struct {
 	format        string
@@ -506,6 +506,9 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 func registerShortcuts(root *cobra.Command) {
 	shortcut := func(use, short, domainRef string, configure func(*cobra.Command, map[string]*string)) *cobra.Command {
 		values := map[string]*string{}
+		var dryRun, pageAll bool
+		var jq string
+		var pageLimit, pageDelay, maxRecords, resumePage int
 		c := &cobra.Command{
 			Use:   use,
 			Short: short,
@@ -538,9 +541,16 @@ func registerShortcuts(root *cobra.Command) {
 						return typedH("business", "required shortcut flag is missing for "+p.Name, "pass the required shortcut flag shown in --help")
 					}
 				}
-				return runRequest(cmd, m, client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query}, requestOptions{})
+				return runRequest(cmd, m, client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query}, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
 			},
 		}
+		c.Flags().BoolVar(&dryRun, "dry-run", false, "print request without sending it")
+		c.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
+		c.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
+		c.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
+		c.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
+		c.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
+		c.Flags().IntVar(&resumePage, "resume-from-page", 1, "start page for --page-all resume")
 		if configure != nil {
 			configure(c, values)
 		}
@@ -777,7 +787,7 @@ func enforceRisk(cmd *cobra.Command, m registry.Method, confirm, yes, dryRun boo
 		return nil
 	}
 	if m.RiskLevel == "write_safe" {
-		if yes || globals.machine {
+		if yes || agentMode() {
 			return nil
 		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s is a write operation; continue? [y/N] ", m.CommandName)
@@ -951,7 +961,7 @@ func exitCode(err error) int {
 }
 
 func writeError(w io.Writer, err error, code int) {
-	if globals.machine {
+	if agentMode() {
 		kind := "business"
 		var te *typedErr
 		if errors.As(err, &te) {
@@ -973,17 +983,42 @@ func writeError(w io.Writer, err error, code int) {
 		}
 		retryable, retryAfterMS := retryFields(err)
 		apiCode, apiMsg := apiErrorFields(err)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"ok":             false,
-			"error_code":     errorCode(err),
+		subtype := errorCode(err)
+		message := security.RedactString(err.Error())
+		hint := security.RedactString(hintForError(err))
+		requestID := requestID(err)
+		errObj := map[string]any{
 			"kind":           kind,
-			"message":        security.RedactString(err.Error()),
-			"hint":           security.RedactString(hintForError(err)),
+			"subtype":        subtype,
+			"message":        message,
+			"hint":           hint,
 			"retryable":      retryable,
 			"retry_after_ms": retryAfterMS,
 			"api_code":       apiCode,
 			"api_msg":        security.RedactString(apiMsg),
-			"request_id":     requestID(err),
+			"request_id":     requestID,
+		}
+		meta := map[string]any{
+			"exit_code": code,
+			"hints":     []string{},
+			"alerts":    []string{},
+		}
+		if hint != "" {
+			meta["hints"] = []string{hint}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ok":             false,
+			"error_code":     subtype,
+			"kind":           kind,
+			"message":        message,
+			"hint":           hint,
+			"retryable":      retryable,
+			"retry_after_ms": retryAfterMS,
+			"api_code":       apiCode,
+			"api_msg":        security.RedactString(apiMsg),
+			"request_id":     requestID,
+			"error":          errObj,
+			"meta":           meta,
 		})
 		return
 	}
