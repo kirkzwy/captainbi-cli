@@ -9,3 +9,5 @@ reference/
 .workbuddy/
 /cbi
 scripts/smoke/*.log
+/AGENTS.md
+/CaptainBI CLI 迭代开发计划（优化版）.md
