@@ -17,7 +17,7 @@ This repository is an early Agent-ready CaptainBI CLI:
 
 ```bash
 # Preferred Agent path for this private/internal phase
-npm install -g github:kirkzwy/captainbi-cli#v0.2.2
+npm install -g github:kirkzwy/captainbi-cli#v0.2.3
 cbi --version
 cbi doctor local --machine --format json
 
@@ -56,7 +56,7 @@ export NODE_USE_ENV_PROXY=1
 Fallback without npm GitHub install:
 
 ```bash
-curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.2/captainbi-cli_0.2.2_darwin_arm64.tar.gz
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.3/captainbi-cli_0.2.3_darwin_arm64.tar.gz
 tar -xzf cbi.tar.gz
 ./cbi --version
 ```

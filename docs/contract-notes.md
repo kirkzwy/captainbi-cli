@@ -109,7 +109,7 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID=*** scripts/smoke/read_only.sh
 本轮主路径改为 GitHub tag 安装，不依赖 npm registry：
 
 ```bash
-npm install -g github:kirkzwy/captainbi-cli#v0.2.2
+npm install -g github:kirkzwy/captainbi-cli#v0.2.3
 cbi --version
 cbi doctor local --machine --format json
 ```
@@ -136,7 +136,7 @@ Agent 输出契约补充：
 - `+reviews`
 - `+store-transactions`
 
-仍需在 tag `v0.2.2` 发布后验证：
+仍需在 tag `v0.2.3` 发布后验证：
 
 - GitHub Release workflow 的 npm GitHub install smoke。
 - 本机 `/tmp` 前缀安装 smoke。

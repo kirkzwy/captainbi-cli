@@ -5,7 +5,7 @@ Use this path when a new Agent needs daily read-only CaptainBI access.
 1. Install the CLI:
 
 ```bash
-npm install -g github:kirkzwy/captainbi-cli#v0.2.2
+npm install -g github:kirkzwy/captainbi-cli#v0.2.3
 cbi --version
 cbi doctor local --machine --format json
 ```

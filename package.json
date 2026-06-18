@@ -1,19 +1,21 @@
 {
   "name": "captainbi-cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "CaptainBI OpenAPI command-line client",
   "repository": {
     "type": "git",
     "url": "https://github.com/kirkzwy/captainbi-cli.git"
   },
   "bin": {
-    "cbi": "npm/run.js",
-    "captainbi": "npm/run.js"
+    "cbi": "run.js",
+    "captainbi": "run.js"
   },
   "scripts": {
-    "postinstall": "node npm/install.js"
+    "postinstall": "node install.js"
   },
   "files": [
+    "install.js",
+    "run.js",
     "npm/install.js",
     "npm/run.js",
     "skills",
