@@ -12,7 +12,7 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 - 内置 token 缓存、`scope=all` token 请求、敏感信息脱敏、20 次/分钟限流和 429 退避重试。
 - 已完成真实只读 smoke：认证、站点、店铺、商品、订单、财务、广告、FBA、Review。
 - 已提供通用 `api`、业务域命令、快捷命令、`schema` 和 `doctor` 命令。
-- 已具备 GitHub Release / npm wrapper / Agent Skills 骨架，下一步以 npm 正式分发和 Skills 一键安装为主。
+- 已具备 GitHub Release / npm wrapper / Agent Skills 骨架；当前阶段优先走 GitHub 安装，不依赖 npm registry 发布。
 
 接口按 6 个业务域组织：
 
@@ -28,9 +28,10 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 ## Agent 快速开始
 
 ```bash
-# 普通 Agent / 干净机器优先使用 npm 安装
-npm install -g captainbi-cli
+# 当前内部/私有项目阶段优先使用 GitHub tag 安装
+npm install -g github:kirkzwy/captainbi-cli#v0.2.2
 cbi --version
+cbi doctor local --machine --format json
 
 # 如果环境支持 skills installer，加载 CaptainBI skills
 npx skills add kirkzwy/captainbi-cli -y -g
@@ -50,8 +51,31 @@ cbi +shops --machine --format json
 
 # 保存店铺别名后跑第一个只读任务
 cbi config channels add main '<open_channel_id>'
-cbi doctor local --machine --format json
 cbi --channel main +goods --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
+```
+
+私有仓库或 GitHub 限流场景，安装前先配置访问 token：
+
+```bash
+export GITHUB_TOKEN='<github_token>'
+export CAPTAINBI_CLI_GITHUB_TOKEN='<github_token>'
+```
+
+需要代理的网络环境，安装前显式配置：
+
+```bash
+export HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://127.0.0.1:7890
+export ALL_PROXY=http://127.0.0.1:7890
+export NODE_USE_ENV_PROXY=1
+```
+
+如果 `npm install github:...` 在特定环境仍卡住，可直接下载 GitHub Release 二进制：
+
+```bash
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.2/captainbi-cli_0.2.2_darwin_arm64.tar.gz
+tar -xzf cbi.tar.gz
+./cbi --version
 ```
 
 > 如果在 Codex/Agent 环境中使用，不要假设外部终端的 `export` 会进入 Agent 进程。推荐用上面的 `--client-secret-stdin` 写入本机 keychain，或用 `--client-secret-file` / `CAPTAINBI_ACCESS_TOKEN`。
@@ -74,6 +98,10 @@ cbi +sites
 cbi +orders --channel main --start 1781424057 --end 1781510457
 cbi +goods --channel main --modified-since 1781424057 --modified-until 1781510457
 cbi +finance-daily --channel main --date 20260615
+cbi +inventory --channel main --modified-since 1781424057 --modified-until 1781510457
+cbi +ads-campaign-report --channel main --summary
+cbi +reviews --channel main --summary
+cbi +store-transactions --channel main --start 20260601 --end 20260615
 ```
 
 从 `+shops` 获取 `open_channel_id` 后，建议保存为别名：
@@ -203,6 +231,7 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 - 店铺级接口优先使用 `--channel <alias>`，不要在日志中输出原始 OpenChannelId。
 - 成功输出读取 `ok/data/meta`；失败输出读取 `ok/error/meta`。
 - 失败时优先读取 `error.kind`、`error.subtype`、`error.hint`、`error.api_code`、`error.api_msg` 来决定是否重试或补参数。
+- 翻页时优先读取 `meta.has_more` 和 `meta.next_page`，不要自行推断是否还有下一页。
 - `page_rows` 分页不强依赖 CaptainBI 返回总数字段；以 `len(data) < rows` 作为主要结束条件。
 
 ## 开发
@@ -228,4 +257,4 @@ go build -o bin/cbi .
 - `--page-all` 当前完整支持 `page_rows` 分页，并支持 `--max-records` 和 `--resume-from-page`。
 - `modified_time_window` 和 `report_date` 已进入 Registry，但目前仍按单次请求执行。
 - POST 接口第一版统一使用 `--data` JSON，还没有做字段级 flags。
-- npm/goreleaser 发布链路已配置；正式 npm 包发布后，Agent 主路径使用 `npm install -g captainbi-cli`。
+- npm registry 暂不作为当前主路径；Agent 测试阶段使用 `npm install -g github:kirkzwy/captainbi-cli#v0.2.2`。

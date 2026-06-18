@@ -5,8 +5,25 @@ Use this path when a new Agent needs daily read-only CaptainBI access.
 1. Install the CLI:
 
 ```bash
-npm install -g captainbi-cli
+npm install -g github:kirkzwy/captainbi-cli#v0.2.2
 cbi --version
+cbi doctor local --machine --format json
+```
+
+For private repositories or GitHub rate limits:
+
+```bash
+export GITHUB_TOKEN='<github_token>'
+export CAPTAINBI_CLI_GITHUB_TOKEN='<github_token>'
+```
+
+For proxy-based networks:
+
+```bash
+export HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://127.0.0.1:7890
+export ALL_PROXY=http://127.0.0.1:7890
+export NODE_USE_ENV_PROXY=1
 ```
 
 2. Install skills when the host supports skill installation:
@@ -44,6 +61,9 @@ cbi doctor local --machine --format json
 
 ```bash
 cbi --channel main +goods --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
+cbi --channel main +inventory --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
+cbi --channel main +ads-campaign-report --summary --machine --format json
+cbi --channel main +reviews --summary --machine --format json
 ```
 
 Agent defaults:

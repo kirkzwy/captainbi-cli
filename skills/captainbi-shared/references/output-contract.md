@@ -20,6 +20,8 @@ Success:
     "pages_fetched": 0,
     "pages_failed": 0,
     "partial": false,
+    "has_more": false,
+    "next_page": null,
     "rate_limit_wait_ms": 0,
     "channel": "",
     "output_file": ""
@@ -34,7 +36,7 @@ Failure:
   "ok": false,
   "error": {
     "kind": "business",
-    "subtype": "BUSINESS",
+    "subtype": "API_BUSINESS_ERROR",
     "message": "",
     "hint": "",
     "retryable": false,
@@ -54,3 +56,18 @@ Failure:
 Compatibility fields such as `error_code`, `kind`, `message`, `hint`, `api_code`, and `api_msg` may also appear at the top level. Prefer the nested `error` object when available.
 
 Stdout is for data. Stderr is for errors, diagnostics, progress and debug logs.
+
+Stable error subtypes:
+
+- `AUTH_MISSING_CREDENTIALS`
+- `AUTH_INVALID_CLIENT`
+- `AUTH_TOKEN_REFRESH_FAILED`
+- `CHANNEL_MISSING`
+- `CHANNEL_INVALID`
+- `VALIDATION_REQUIRED_FLAG`
+- `VALIDATION_BAD_PARAM`
+- `RATE_LIMIT_EXCEEDED`
+- `HTTP_5XX`
+- `NETWORK_FAILED`
+- `CONFIRMATION_REQUIRED`
+- `API_BUSINESS_ERROR`

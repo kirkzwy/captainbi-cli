@@ -24,3 +24,13 @@ cbi --channel <alias> finance asin-daily \
 ```
 
 For profit or fee questions, start with store daily/monthly reports before drilling into ASIN-level data.
+
+## Store Transactions
+
+```bash
+cbi --channel <alias> +store-transactions \
+  --start <YYYYMMDD> \
+  --end <YYYYMMDD> \
+  --summary \
+  --machine --format json
+```

@@ -16,9 +16,10 @@ This repository is an early Agent-ready CaptainBI CLI:
 ## Quick Start
 
 ```bash
-# Preferred Agent path
-npm install -g captainbi-cli
+# Preferred Agent path for this private/internal phase
+npm install -g github:kirkzwy/captainbi-cli#v0.2.2
 cbi --version
+cbi doctor local --machine --format json
 
 # Optional skill installation when the host supports it
 npx skills add kirkzwy/captainbi-cli -y -g
@@ -33,8 +34,31 @@ cbi auth token
 cbi +sites
 cbi +shops
 cbi config channels add main '<open_channel_id>'
-cbi doctor local --machine --format json
 cbi --channel main +goods --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
+```
+
+For private repositories or GitHub rate limits, configure access before install:
+
+```bash
+export GITHUB_TOKEN='<github_token>'
+export CAPTAINBI_CLI_GITHUB_TOKEN='<github_token>'
+```
+
+For proxy-based networks:
+
+```bash
+export HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://127.0.0.1:7890
+export ALL_PROXY=http://127.0.0.1:7890
+export NODE_USE_ENV_PROXY=1
+```
+
+Fallback without npm GitHub install:
+
+```bash
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.2/captainbi-cli_0.2.2_darwin_arm64.tar.gz
+tar -xzf cbi.tar.gz
+./cbi --version
 ```
 
 Build from source only for development:
@@ -52,6 +76,10 @@ cbi +sites
 cbi +orders --channel main --start 1781424057 --end 1781510457
 cbi +goods --channel main --modified-since 1781424057 --modified-until 1781510457
 cbi +finance-daily --channel main --date 20260615
+cbi +inventory --channel main --modified-since 1781424057 --modified-until 1781510457
+cbi +ads-campaign-report --channel main --summary
+cbi +reviews --channel main --summary
+cbi +store-transactions --channel main --start 20260601 --end 20260615
 
 # Generated business-domain commands
 cbi goods list --channel main --start-modified-time 1700000000 --end-modified-time 1700100000
@@ -92,7 +120,7 @@ cbi tools export --format openai
 - Use `CBI_AGENT=1` when the host should receive machine-friendly errors by default.
 - Use `--summary` before large pulls; use `--output-file` for full data.
 - Page-all for `page_rows` endpoints stops on `len(data) < rows`; `max_result` is optional.
-- Resume long pulls with `--resume-from-page`.
+- Read `meta.has_more` and `meta.next_page` to decide whether to continue; resume long pulls with `--resume-from-page`.
 - Success output uses `ok/data/meta`; failure output uses `ok/error/meta`.
 - Read `error.kind`, `error.subtype`, `error.hint`, `error.api_code` and `error.api_msg` on failures.
 

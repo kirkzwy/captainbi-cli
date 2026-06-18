@@ -1,6 +1,6 @@
 ---
 name: captainbi-shared
-description: CaptainBI CLI shared rules for authentication, channels, output parsing, errors, rate limits and safety.
+description: "CaptainBI CLI shared rules for authentication, channels, output parsing, errors, rate limits and safety. WHEN use for: any CaptainBI CLI task, first-run setup, credential recovery, channel selection, output parsing, pagination, or safety decisions. WHEN NOT: do not use for Amazon SP-API-only, Feishu-only, logistics-file-only, or non-CaptainBI tasks."
 ---
 
 # CaptainBI Shared

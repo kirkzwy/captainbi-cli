@@ -103,3 +103,41 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID=*** scripts/smoke/read_only.sh
 - 更多业务错误是否全部遵循 `code/msg`。
 - 真实 429 是否带 `Retry-After`。
 - 多 Agent 并发长任务下，token lock 与跨进程 rate-limit 是否符合预期。
+
+## 2026-06-18 GitHub 安装与 Agent 测试准备
+
+本轮主路径改为 GitHub tag 安装，不依赖 npm registry：
+
+```bash
+npm install -g github:kirkzwy/captainbi-cli#v0.2.2
+cbi --version
+cbi doctor local --machine --format json
+```
+
+安装链路补强：
+
+- `npm/install.js` 下载 GitHub Release asset 前输出 URL。
+- `curl` 增加连接超时、总超时和重试。
+- 支持 `CAPTAINBI_CLI_GITHUB_TOKEN` / `GITHUB_TOKEN` 访问私有仓库或规避 GitHub 限流。
+- 代理环境需要显式设置 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`NODE_USE_ENV_PROXY=1`。
+- 如果 `npm install github:...` 在本机环境无输出卡住，使用 `--foreground-scripts` 观察 postinstall；仍失败时改走 GitHub Release 二进制 fallback。
+
+Agent 输出契约补充：
+
+- `page_rows` 分页响应增加 `has_more` 和 `next_page`。
+- `meta` 同步暴露 `has_more`、`next_page`、`pages_fetched`、`pages_failed`、`partial`。
+- 错误 `error.subtype` 固定为稳定枚举，便于 Agent 自愈。
+
+新增只读快捷命令：
+
+- `+inventory`
+- `+ads-campaigns`
+- `+ads-campaign-report`
+- `+reviews`
+- `+store-transactions`
+
+仍需在 tag `v0.2.2` 发布后验证：
+
+- GitHub Release workflow 的 npm GitHub install smoke。
+- 本机 `/tmp` 前缀安装 smoke。
+- 真实 Agent 中的只读任务选择、参数补齐、错误恢复和输出保存。

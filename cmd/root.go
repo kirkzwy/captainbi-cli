@@ -23,7 +23,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
 
-var version = "0.2.1-dev"
+var version = "0.2.2-dev"
 
 type globalOptions struct {
 	format        string
@@ -504,14 +504,15 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 }
 
 func registerShortcuts(root *cobra.Command) {
-	shortcut := func(use, short, domainRef string, configure func(*cobra.Command, map[string]*string)) *cobra.Command {
+	shortcut := func(use, short, domainRef, example string, configure func(*cobra.Command, map[string]*string)) *cobra.Command {
 		values := map[string]*string{}
 		var dryRun, pageAll bool
 		var jq string
 		var pageLimit, pageDelay, maxRecords, resumePage int
 		c := &cobra.Command{
-			Use:   use,
-			Short: short,
+			Use:     use,
+			Short:   short,
+			Example: example,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				reg, err := registry.Load()
 				if err != nil {
@@ -556,26 +557,49 @@ func registerShortcuts(root *cobra.Command) {
 		}
 		return c
 	}
-	root.AddCommand(shortcut("+shops", "List shops", "goods.shops", nil))
-	root.AddCommand(shortcut("+sites", "List sites", "goods.sites", nil))
-	root.AddCommand(shortcut("+orders", "List orders", "sales.orders", func(cmd *cobra.Command, values map[string]*string) {
+	root.AddCommand(shortcut("+shops", "List shops", "goods.shops", "  cbi +shops --machine --format json\n  cbi +shops --summary --machine", nil))
+	root.AddCommand(shortcut("+sites", "List sites", "goods.sites", "  cbi +sites --machine --format json", nil))
+	root.AddCommand(shortcut("+orders", "List orders", "sales.orders", "  cbi --channel main +orders --start 1781424057 --end 1781510457 --summary --machine\n  cbi --channel all +orders --start 1781424057 --end 1781510457 --page-all --max-records 500 --machine", func(cmd *cobra.Command, values map[string]*string) {
 		start, end := "", ""
 		values["start_modified_time"] = &start
 		values["end_modified_time"] = &end
 		cmd.Flags().StringVar(&start, "start", "", "start modified timestamp")
 		cmd.Flags().StringVar(&end, "end", "", "end modified timestamp")
 	}))
-	root.AddCommand(shortcut("+goods", "List goods", "goods.list", func(cmd *cobra.Command, values map[string]*string) {
+	root.AddCommand(shortcut("+goods", "List goods", "goods.list", "  cbi --channel main +goods --modified-since 1781424057 --modified-until 1781510457 --summary --machine\n  cbi --channel main +goods --modified-since 1781424057 --modified-until 1781510457 --page-all --max-records 500 --machine", func(cmd *cobra.Command, values map[string]*string) {
 		modifiedSince, end := "", ""
 		values["start_modified_time"] = &modifiedSince
 		values["end_modified_time"] = &end
 		cmd.Flags().StringVar(&modifiedSince, "modified-since", "", "start modified timestamp")
 		cmd.Flags().StringVar(&end, "modified-until", "", "end modified timestamp")
 	}))
-	root.AddCommand(shortcut("+finance-daily", "Get store daily finance report", "finance.store-daily", func(cmd *cobra.Command, values map[string]*string) {
+	root.AddCommand(shortcut("+finance-daily", "Get store daily finance report", "finance.store-daily", "  cbi --channel main +finance-daily --date 20260615 --summary --machine\n  cbi --channel all +finance-daily --date 20260615 --summary --machine", func(cmd *cobra.Command, values map[string]*string) {
 		date := ""
 		values["report_date"] = &date
 		cmd.Flags().StringVar(&date, "date", "", "report date, for example 20260615")
+	}))
+	root.AddCommand(shortcut("+inventory", "List FBA inventory", "fba.inventory", "  cbi --channel main +inventory --modified-since 1781424057 --modified-until 1781510457 --summary --machine\n  cbi --channel main +inventory --modified-since 1781424057 --modified-until 1781510457 --page-all --max-records 500 --machine", func(cmd *cobra.Command, values map[string]*string) {
+		modifiedSince, end := "", ""
+		values["start_modified_time"] = &modifiedSince
+		values["end_modified_time"] = &end
+		cmd.Flags().StringVar(&modifiedSince, "modified-since", "", "start modified timestamp")
+		cmd.Flags().StringVar(&end, "modified-until", "", "end modified timestamp")
+	}))
+	root.AddCommand(shortcut("+ads-campaigns", "List advertising campaigns", "ads.advertise-campaign", "  cbi --channel main +ads-campaigns --summary --machine\n  cbi --channel all +ads-campaigns --summary --machine", nil))
+	root.AddCommand(shortcut("+ads-campaign-report", "Get advertising campaign report", "ads.advertise-campaign-report", "  cbi --channel main +ads-campaign-report --summary --machine\n  cbi --channel main +ads-campaign-report --output-file ads-campaigns.json --machine", nil))
+	root.AddCommand(shortcut("+reviews", "List product reviews", "monitor.reviews", "  cbi --channel main +reviews --summary --machine\n  cbi --channel main +reviews --page-all --max-records 500 --machine", func(cmd *cobra.Command, values map[string]*string) {
+		start, end := "", ""
+		values["start_modified_time"] = &start
+		values["end_modified_time"] = &end
+		cmd.Flags().StringVar(&start, "start", "", "optional start modified timestamp")
+		cmd.Flags().StringVar(&end, "end", "", "optional end modified timestamp")
+	}))
+	root.AddCommand(shortcut("+store-transactions", "List store finance transactions", "finance.store-transactions", "  cbi --channel main +store-transactions --start 20260601 --end 20260615 --summary --machine\n  cbi --channel main +store-transactions --start 20260601 --end 20260615 --page-all --max-records 500 --machine", func(cmd *cobra.Command, values map[string]*string) {
+		start, end := "", ""
+		values["start_report_time"] = &start
+		values["end_report_time"] = &end
+		cmd.Flags().StringVar(&start, "start", "", "start report date or timestamp")
+		cmd.Flags().StringVar(&end, "end", "", "end report date or timestamp")
 	}))
 }
 
@@ -703,8 +727,12 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	pagesFailed := 0
 	failedAtPage := 0
 	partialError := ""
+	hasMore := false
+	nextPage := 0
 	for page := startPage; ; page++ {
 		if limit > 0 && pagesFetched >= limit {
+			hasMore = true
+			nextPage = page
 			break
 		}
 		req.Query["page"] = strconv.Itoa(page)
@@ -736,6 +764,10 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 		all = append(all, data...)
 		if opts.maxRecords > 0 && len(all) >= opts.maxRecords {
 			all = all[:opts.maxRecords]
+			hasMore = len(data) >= rows
+			if hasMore {
+				nextPage = page + 1
+			}
 			break
 		}
 		maxResult := intFrom(resp[m.Pagination.TotalField])
@@ -760,9 +792,15 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	envelope["pages_fetched"] = pagesFetched
 	envelope["pages_failed"] = pagesFailed
 	envelope["partial"] = pagesFailed > 0
+	envelope["has_more"] = hasMore
+	if nextPage > 0 {
+		envelope["next_page"] = nextPage
+	}
 	if failedAtPage > 0 {
 		envelope["failed_at_page"] = failedAtPage
 		envelope["partial_error"] = security.RedactString(partialError)
+		envelope["has_more"] = true
+		envelope["next_page"] = failedAtPage
 	}
 	envelope["resume_from_page"] = startPage
 	return envelope, nil

@@ -1,6 +1,6 @@
 ---
 name: captainbi-fba
-description: FBA inventory, fees, shipments and monitor commands for CaptainBI CLI.
+description: "FBA inventory, fees, shipments and monitor commands for CaptainBI CLI. WHEN use for: FBA inventory, shipment lists, storage fees, abnormal distribution fees, and FBA ASIN monitoring. WHEN NOT: do not use for customer orders, product reviews, advertising metrics, or finance reports unless inventory context is needed."
 ---
 
 # CaptainBI FBA
@@ -18,7 +18,7 @@ Do not use for customer orders, product reviews, advertising, or finance reports
 
 ## Command Choice
 
-- Inventory: `cbi fba inventory --channel <alias> --start-modified-time <ts> --end-modified-time <ts> --summary`.
+- Inventory: `cbi +inventory --channel <alias> --modified-since <ts> --modified-until <ts> --summary --machine`.
 - Shipments: `cbi fba shipments --channel <alias>`.
 - Storage fee: `cbi fba storage-fee --channel <alias>`.
 - ASIN monitor: `cbi fba asin-monitor --channel <alias>`.
@@ -27,8 +27,8 @@ Do not use for customer orders, product reviews, advertising, or finance reports
 ## Examples
 
 ```bash
-cbi --channel main fba inventory --page 1 --rows 100 --start-modified-time 1781424057 --end-modified-time 1781510457 --summary --machine
-cbi --channel main fba inventory --start-modified-time 1781424057 --end-modified-time 1781510457 --page-all --max-records 100 --machine
+cbi --channel main +inventory --modified-since 1781424057 --modified-until 1781510457 --summary --machine
+cbi --channel main +inventory --modified-since 1781424057 --modified-until 1781510457 --page-all --max-records 100 --machine
 ```
 
 ## Notes

@@ -1,6 +1,6 @@
 ---
 name: captainbi-ads
-description: Advertising structure and report commands for CaptainBI CLI.
+description: "Advertising structure and report commands for CaptainBI CLI. WHEN use for: campaigns, ad groups, keywords, placement, search terms, ACOS/ROAS, clicks, impressions, spend, and campaign diagnostics. WHEN NOT: do not use for organic orders, product master data, FBA inventory, finance reports, or reviews unless comparing with ad performance."
 ---
 
 # CaptainBI Ads
@@ -18,8 +18,8 @@ Do not use for organic orders, product master data, FBA inventory, or reviews un
 
 ## Command Choice
 
-- Campaign structure: `cbi ads advertise-campaign --channel <alias>`.
-- Campaign report: `cbi ads advertise-campaign-report --channel <alias> --summary`.
+- Campaign structure: `cbi +ads-campaigns --channel <alias> --summary --machine`.
+- Campaign report: `cbi +ads-campaign-report --channel <alias> --summary --machine`.
 - Ad group report: `cbi ads advertise-group-report --channel <alias>`.
 - Keyword report: `cbi ads advertise-keyword-report --channel <alias>`.
 - Search term reports: `cbi ads search-term-placement-report`, `cbi ads search-term-keywords-report`.
@@ -27,7 +27,7 @@ Do not use for organic orders, product master data, FBA inventory, or reviews un
 ## Examples
 
 ```bash
-cbi --channel main ads advertise-campaign-report --summary --machine
+cbi --channel main +ads-campaign-report --summary --machine
 cbi --channel main ads advertise-keyword-report --format json --output-file ads-keywords.json
 ```
 

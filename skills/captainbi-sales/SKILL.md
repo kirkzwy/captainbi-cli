@@ -1,6 +1,6 @@
 ---
 name: captainbi-sales
-description: Sales, orders, returns, refunds and FBM shipping commands for CaptainBI CLI.
+description: "Sales, orders, returns, refunds and FBM shipping commands for CaptainBI CLI. WHEN use for: order lists, refunds, returns, FBM shipping status, and sales-volume analysis. WHEN NOT: do not use for profit/P&L questions, advertising reports, FBA inventory, Amazon SP-API-only tasks, or Feishu-only records."
 ---
 
 # CaptainBI Sales

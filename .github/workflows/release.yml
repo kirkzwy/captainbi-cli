@@ -35,3 +35,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: /tmp/cbi-npm-smoke/bin/cbi --version
       - run: /tmp/cbi-npm-smoke/bin/cbi doctor local --machine
+      - run: npm install --foreground-scripts --prefix /tmp/cbi-gh-smoke -g github:kirkzwy/captainbi-cli#${GITHUB_REF_NAME}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: /tmp/cbi-gh-smoke/bin/cbi --version
+      - run: /tmp/cbi-gh-smoke/bin/cbi doctor local --machine --format json

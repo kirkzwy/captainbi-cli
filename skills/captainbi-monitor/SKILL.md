@@ -1,6 +1,6 @@
 ---
 name: captainbi-monitor
-description: Review, feedback, bad review and hijack monitoring commands for CaptainBI CLI.
+description: "Review, feedback, bad review and hijack monitoring commands for CaptainBI CLI. WHEN use for: product reviews, feedback, bad review monitoring, follow-up, hijack records, and CaptainBI monitoring reports. WHEN NOT: do not use for order status, finance, advertising, or FBA inventory unless monitoring data needs correlation."
 ---
 
 # CaptainBI Monitor
@@ -18,7 +18,7 @@ Do not use for order status, finance reports, advertising metrics, or FBA invent
 
 ## Command Choice
 
-- Reviews: `cbi monitor reviews --channel <alias> --page 1 --rows 100`.
+- Reviews: `cbi +reviews --channel <alias> --summary --machine`.
 - Feedback: `cbi monitor feedback --channel <alias>`.
 - Bad review summary: `cbi monitor bad-review-summary --channel <alias>`.
 - Hijacked/followup: `cbi monitor hijacked-record`, `cbi monitor followup`.
@@ -27,7 +27,7 @@ Do not use for order status, finance reports, advertising metrics, or FBA invent
 ## Examples
 
 ```bash
-cbi --channel main monitor reviews --page 1 --rows 100 --summary --machine
+cbi --channel main +reviews --summary --machine
 cbi --channel main monitor bad-review-summary --page-all --max-records 100 --machine
 ```
 

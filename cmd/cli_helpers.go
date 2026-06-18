@@ -127,6 +127,12 @@ func channelResult(target channelTarget, resp map[string]any, err error) map[str
 		if v, ok := resp["partial"]; ok {
 			out["partial"] = v
 		}
+		if v, ok := resp["has_more"]; ok {
+			out["has_more"] = v
+		}
+		if v, ok := resp["next_page"]; ok {
+			out["next_page"] = v
+		}
 		if v, ok := resp["rate_limit_wait_ms"]; ok {
 			out["rate_limit_wait_ms"] = v
 		}
@@ -239,6 +245,8 @@ func metaForValue(value any) map[string]any {
 		copyMetaKey(meta, m, "pages_fetched")
 		copyMetaKey(meta, m, "pages_failed")
 		copyMetaKey(meta, m, "partial")
+		copyMetaKey(meta, m, "has_more")
+		copyMetaKey(meta, m, "next_page")
 		copyMetaKey(meta, m, "rate_limit_wait_ms")
 		copyMetaKey(meta, m, "channel")
 		if channels, ok := m["channels"].([]map[string]any); ok {
@@ -326,6 +334,8 @@ func summarizeValue(value any) map[string]any {
 		copyMetaKey(out, m, "pages_fetched")
 		copyMetaKey(out, m, "pages_failed")
 		copyMetaKey(out, m, "partial")
+		copyMetaKey(out, m, "has_more")
+		copyMetaKey(out, m, "next_page")
 		copyMetaKey(out, m, "failed_at_page")
 		copyMetaKey(out, m, "rate_limit_wait_ms")
 		copyMetaKey(out, m, "page_all")
@@ -369,26 +379,78 @@ func copyMap(in map[string]any) map[string]any {
 }
 
 func errorCode(err error) string {
+	return errorSubtype(err)
+}
+
+func errorSubtype(err error) string {
 	var te *typedErr
 	if errors.As(err, &te) {
-		return strings.ToUpper(te.kind)
+		msg := strings.ToLower(te.msg)
+		switch te.kind {
+		case "auth":
+			if strings.Contains(msg, "client_secret") || strings.Contains(msg, "client_id") || strings.Contains(msg, "credential") {
+				return "AUTH_MISSING_CREDENTIALS"
+			}
+			return "AUTH_TOKEN_REFRESH_FAILED"
+		case "confirmation_required":
+			return "CONFIRMATION_REQUIRED"
+		case "rate_limit":
+			return "RATE_LIMIT_EXCEEDED"
+		case "network":
+			return "NETWORK_FAILED"
+		case "business":
+			if strings.Contains(msg, "openchannelid") || strings.Contains(msg, "channel aliases") {
+				return "CHANNEL_MISSING"
+			}
+			if strings.Contains(msg, "required") && (strings.Contains(msg, "flag") || strings.Contains(msg, "shortcut")) {
+				return "VALIDATION_REQUIRED_FLAG"
+			}
+			if strings.Contains(msg, "must be") || strings.Contains(msg, "invalid") || strings.Contains(msg, "json") {
+				return "VALIDATION_BAD_PARAM"
+			}
+			return "API_BUSINESS_ERROR"
+		default:
+			return strings.ToUpper(te.kind)
+		}
 	}
 	var ae *auth.TokenError
-	if errors.As(err, &ae) && ae.ErrorCode != "" {
-		return strings.ToUpper(ae.ErrorCode)
+	if errors.As(err, &ae) {
+		if ae.ErrorCode == "invalid_client" {
+			return "AUTH_INVALID_CLIENT"
+		}
+		return "AUTH_TOKEN_REFRESH_FAILED"
 	}
 	var ce *client.Error
 	if errors.As(err, &ce) {
-		return strings.ToUpper(ce.Kind)
+		switch ce.Kind {
+		case "auth":
+			return errorSubtype(ce.Unwrap())
+		case "rate_limit":
+			return "RATE_LIMIT_EXCEEDED"
+		case "network":
+			return "NETWORK_FAILED"
+		case "business":
+			return "API_BUSINESS_ERROR"
+		default:
+			return strings.ToUpper(ce.Kind)
+		}
 	}
 	var se *client.StatusError
 	if errors.As(err, &se) {
 		if se.StatusCode == 429 {
-			return "RATE_LIMIT"
+			return "RATE_LIMIT_EXCEEDED"
 		}
-		return fmt.Sprintf("HTTP_%d", se.StatusCode)
+		if se.StatusCode >= 500 {
+			return "HTTP_5XX"
+		}
+		apiCode, apiMsg := apiErrorFields(se)
+		msg := strings.ToLower(fmt.Sprint(apiCode) + " " + apiMsg)
+		if strings.Contains(msg, "open_channel_id") || strings.Contains(msg, "openchannelid") {
+			return "CHANNEL_INVALID"
+		}
+		return "API_BUSINESS_ERROR"
 	}
-	return "BUSINESS"
+	return "API_BUSINESS_ERROR"
 }
 
 func retryFields(err error) (bool, int64) {
@@ -425,7 +487,10 @@ func apiErrorFields(err error) (any, string) {
 func hintForError(err error) string {
 	var te *typedErr
 	if errors.As(err, &te) {
-		return te.Hint()
+		if hint := te.Hint(); hint != "" {
+			return hint
+		}
+		return hintForSubtype(errorSubtype(err))
 	}
 	var ae *auth.TokenError
 	if errors.As(err, &ae) {
@@ -461,7 +526,38 @@ func hintForError(err error) string {
 			return "retry later; CaptainBI returned a server error"
 		}
 	}
-	return ""
+	return hintForSubtype(errorSubtype(err))
+}
+
+func hintForSubtype(subtype string) string {
+	switch subtype {
+	case "AUTH_MISSING_CREDENTIALS":
+		return "configure credentials with cbi config init --client-secret-stdin, --client-secret-from-env, --client-secret-file, or CAPTAINBI_ACCESS_TOKEN"
+	case "AUTH_INVALID_CLIENT":
+		return "verify CaptainBI APPID/client_secret and rerun cbi config init; token requests include scope=all automatically"
+	case "AUTH_TOKEN_REFRESH_FAILED":
+		return "run cbi auth status --machine, then refresh credentials with cbi auth token or cbi config init"
+	case "CHANNEL_MISSING":
+		return "run cbi +shops, then pass --channel <alias> or configure cbi config channels add <alias> <open_channel_id>"
+	case "CHANNEL_INVALID":
+		return "verify the channel alias or OpenChannelId with cbi +shops, then update cbi config channels"
+	case "VALIDATION_REQUIRED_FLAG":
+		return "run the command with --help and pass the required flag shown in Examples"
+	case "VALIDATION_BAD_PARAM":
+		return "fix the parameter value according to --help or cbi schema <domain.command>"
+	case "RATE_LIMIT_EXCEEDED":
+		return "wait retry_after_ms when present, reduce concurrency, or lower --rate-limit"
+	case "HTTP_5XX":
+		return "retry later; CaptainBI returned a server error"
+	case "NETWORK_FAILED":
+		return "retry later and check network or proxy settings"
+	case "CONFIRMATION_REQUIRED":
+		return "use --dry-run to preview, then add --confirm only after explicit user approval"
+	case "API_BUSINESS_ERROR":
+		return "read api_code/api_msg, fix the request parameters or channel, then retry"
+	default:
+		return ""
+	}
 }
 
 func requestID(err error) string {

@@ -1,6 +1,6 @@
 ---
 name: captainbi-finance
-description: Finance reports, transactions, VAT, costs, expenses, claims and profit commands for CaptainBI CLI.
+description: "Finance reports, transactions, VAT, costs, expenses, claims and profit commands for CaptainBI CLI. WHEN use for: store/ASIN profit, daily/monthly finance reports, transactions, VAT, claims, costs, and operating expenses. WHEN NOT: do not use for raw order lists, ad keyword performance, FBA inventory, or reviews unless finance correlation is required."
 ---
 
 # CaptainBI Finance
@@ -21,7 +21,7 @@ Do not use for raw order lists, ad keyword performance, FBA inventory, or review
 - Store daily finance by order dimension: `cbi +finance-daily --channel <alias> --date YYYYMMDD --summary`.
 - Store monthly: `cbi finance store-monthly --channel <alias> --report-date YYYYMM`.
 - ASIN daily: `cbi finance asin-daily --channel <alias> --report-date YYYYMMDD`.
-- Transactions: `cbi finance store-transactions --channel <alias> --page-all`.
+- Transactions: `cbi +store-transactions --channel <alias> --start YYYYMMDD --end YYYYMMDD --page-all`.
 - Claims/VAT: `cbi finance claims`, `cbi finance vat`.
 - Cost/rule writes require dry-run and `--confirm`.
 
@@ -30,6 +30,7 @@ Do not use for raw order lists, ad keyword performance, FBA inventory, or review
 ```bash
 cbi --channel main +finance-daily --date 20260615 --summary --machine
 cbi --channel main finance store-daily --report-date 20260615 --page-all --max-records 100 --machine
+cbi --channel main +store-transactions --start 20260601 --end 20260615 --summary --machine
 ```
 
 ## Notes

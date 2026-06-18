@@ -1,6 +1,6 @@
 ---
 name: captainbi-goods
-description: Goods, shops, sites, tags, groups, SKU and ASIN commands for CaptainBI CLI.
+description: "Goods, shops, sites, tags, groups, SKU and ASIN commands for CaptainBI CLI. WHEN use for: shop/site discovery, product master data, SKU/ASIN lookup, goods changes, tags, groups, and operator metadata. WHEN NOT: do not use for orders, profit, advertising, FBA inventory, or reviews unless product mapping is needed."
 ---
 
 # CaptainBI Goods

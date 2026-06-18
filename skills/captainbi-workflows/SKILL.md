@@ -1,6 +1,6 @@
 ---
 name: captainbi-workflows
-description: Cross-domain CaptainBI CLI workflows for daily reports, inventory summaries and advertising diagnostics.
+description: "Cross-domain CaptainBI CLI workflows for daily reports, inventory summaries and advertising diagnostics. WHEN use for: multi-step store snapshots, inventory checks, advertising diagnosis, or tasks requiring multiple CaptainBI domains. WHEN NOT: do not use for a single endpoint lookup when a domain skill is more direct, or for non-CaptainBI data sources."
 ---
 
 # CaptainBI Workflows
@@ -14,7 +14,7 @@ Use when the user asks for a daily store overview.
 ```bash
 cbi --channel main +finance-daily --date YYYYMMDD --summary --machine
 cbi --channel main +orders --start <start_ts> --end <end_ts> --summary --machine
-cbi --channel main ads advertise-campaign-report --summary --machine
+cbi --channel main +ads-campaign-report --summary --machine
 ```
 
 ## Inventory Check
@@ -22,7 +22,7 @@ cbi --channel main ads advertise-campaign-report --summary --machine
 Use when the user asks for stock, FBA inventory, or replenishment context.
 
 ```bash
-cbi --channel main fba inventory --start-modified-time <start_ts> --end-modified-time <end_ts> --summary --machine
+cbi --channel main +inventory --modified-since <start_ts> --modified-until <end_ts> --summary --machine
 cbi --channel main +goods --modified-since <start_ts> --modified-until <end_ts> --summary --machine
 ```
 
@@ -31,7 +31,7 @@ cbi --channel main +goods --modified-since <start_ts> --modified-until <end_ts> 
 Use when the user asks why ACOS/cost/ROAS changed.
 
 ```bash
-cbi --channel main ads advertise-campaign-report --summary --machine
+cbi --channel main +ads-campaign-report --summary --machine
 cbi --channel main ads advertise-keyword-report --format json --output-file ads-keywords.json
 ```
 

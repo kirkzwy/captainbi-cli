@@ -22,6 +22,7 @@ const binExt = process.platform === "win32" ? ".exe" : "";
 const archiveName = `captainbi-cli_${version}_${platform}_${arch}${ext}`;
 const base = process.env.CAPTAINBI_CLI_DOWNLOAD_BASE || "https://github.com/kirkzwy/captainbi-cli/releases/download";
 const url = `${base}/v${version}/${archiveName}`;
+const checksumsUrl = `${base}/v${version}/checksums.txt`;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "captainbi-cli-"));
 const archive = path.join(tmp, archiveName);
 const checksums = path.join(tmp, "checksums.txt");
@@ -30,8 +31,10 @@ const dest = path.join(outDir, `cbi${binExt}`);
 
 try {
   fs.mkdirSync(outDir, { recursive: true });
+  console.error(`Installing captainbi-cli v${version} from GitHub Release asset: ${url}`);
   execFileSync("curl", curlArgs(url, archive), { stdio: "inherit" });
-  execFileSync("curl", curlArgs(`${base}/v${version}/checksums.txt`, checksums), { stdio: "inherit" });
+  console.error(`Downloading checksum file: ${checksumsUrl}`);
+  execFileSync("curl", curlArgs(checksumsUrl, checksums), { stdio: "inherit" });
   verifyChecksum(checksums, archiveName, archive);
   if (process.platform === "win32") {
     execFileSync("powershell", ["-Command", `Expand-Archive -Path '${archive}' -DestinationPath '${tmp}'`], { stdio: "inherit" });
@@ -44,8 +47,10 @@ try {
   console.log(`captainbi-cli v${version} installed`);
 } catch (err) {
   console.error(`Failed to install cbi: ${err.message}`);
-  console.error("Recovery: verify the GitHub release asset exists for this version, then retry npm install.");
+  console.error(`Recovery: verify the GitHub release asset exists: ${url}`);
   console.error("If GitHub rate limits or private access apply, set CAPTAINBI_CLI_GITHUB_TOKEN or GITHUB_TOKEN.");
+  console.error("If your network needs a proxy, set HTTP_PROXY, HTTPS_PROXY, ALL_PROXY and NODE_USE_ENV_PROXY=1 before npm install.");
+  console.error("For npm GitHub installs that appear silent, retry with `npm install --foreground-scripts ...` to show postinstall logs.");
   console.error("For local development, run `go build -buildvcs=false -o npm/bin/cbi .` before using the npm wrapper.");
   process.exit(1);
 } finally {
@@ -53,7 +58,22 @@ try {
 }
 
 function curlArgs(url, output) {
-  const args = ["--fail", "--location", "--silent", "--show-error", "--output", output];
+  const args = [
+    "--fail",
+    "--location",
+    "--silent",
+    "--show-error",
+    "--connect-timeout",
+    process.env.CAPTAINBI_CLI_CONNECT_TIMEOUT || "20",
+    "--max-time",
+    process.env.CAPTAINBI_CLI_DOWNLOAD_TIMEOUT || "180",
+    "--retry",
+    process.env.CAPTAINBI_CLI_DOWNLOAD_RETRY || "3",
+    "--retry-delay",
+    "2",
+    "--output",
+    output,
+  ];
   const token = process.env.CAPTAINBI_CLI_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
   if (token) {
     args.push("--header", `Authorization: Bearer ${token}`);

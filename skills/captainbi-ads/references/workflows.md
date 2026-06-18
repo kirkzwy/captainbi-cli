@@ -5,7 +5,7 @@ Use `captainbi-shared` first.
 ## Campaign Spend Summary
 
 ```bash
-cbi --channel <alias> ads advertise-campaign-report \
+cbi --channel <alias> +ads-campaign-report \
   --summary \
   --machine --format json
 ```

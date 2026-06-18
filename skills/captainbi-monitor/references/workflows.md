@@ -5,9 +5,7 @@ Use `captainbi-shared` first.
 ## Reviews Watch
 
 ```bash
-cbi --channel <alias> monitor reviews \
-  --page 1 \
-  --rows 100 \
+cbi --channel <alias> +reviews \
   --summary \
   --machine --format json
 ```
