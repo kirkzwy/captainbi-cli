@@ -143,8 +143,10 @@ v0.2.3 记录：
 - `npm install -g github:kirkzwy/captainbi-cli#v0.2.3` 在 GitHub Actions 中失败，npm 在 Git clone lifecycle 临时目录执行 `node install.js` 时找不到入口文件。
 - 因此 v0.2.4 改为 GitHub Release npm tarball URL 作为主安装路径，仍不走 npm registry。
 
-仍需在 tag `v0.2.4` 发布后验证：
+v0.2.4 验证结果：
 
-- GitHub Release workflow 的 npm GitHub install smoke。
-- 本机 `/tmp` 前缀安装 smoke。
+- GitHub Release workflow 通过，包含 npm tarball 上传、本地 tarball smoke、GitHub Release npm tarball 安装 smoke。
+- Release assets 包含 6 个平台二进制包、`checksums.txt` 和 `captainbi-cli-0.2.4.tgz`。
+- 本机 `/tmp` 前缀安装不带代理时会长时间无输出，判断卡在 npm/GitHub 网络阶段。
+- 本机显式设置 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`NODE_USE_ENV_PROXY=1` 后安装通过，并验证 `cbi --version` 与 `cbi doctor local --machine --format json`。
 - 真实 Agent 中的只读任务选择、参数补齐、错误恢复和输出保存。
