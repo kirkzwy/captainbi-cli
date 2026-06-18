@@ -106,10 +106,10 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID=*** scripts/smoke/read_only.sh
 
 ## 2026-06-18 GitHub 安装与 Agent 测试准备
 
-本轮主路径改为 GitHub tag 安装，不依赖 npm registry：
+本轮主路径改为 GitHub Release npm tarball 安装，不依赖 npm registry：
 
 ```bash
-npm install -g github:kirkzwy/captainbi-cli#v0.2.3
+npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli-0.2.4.tgz
 cbi --version
 cbi doctor local --machine --format json
 ```
@@ -136,7 +136,14 @@ Agent 输出契约补充：
 - `+reviews`
 - `+store-transactions`
 
-仍需在 tag `v0.2.3` 发布后验证：
+v0.2.3 记录：
+
+- GitHub Release assets 已生成。
+- 本地 npm tarball smoke 已通过。
+- `npm install -g github:kirkzwy/captainbi-cli#v0.2.3` 在 GitHub Actions 中失败，npm 在 Git clone lifecycle 临时目录执行 `node install.js` 时找不到入口文件。
+- 因此 v0.2.4 改为 GitHub Release npm tarball URL 作为主安装路径，仍不走 npm registry。
+
+仍需在 tag `v0.2.4` 发布后验证：
 
 - GitHub Release workflow 的 npm GitHub install smoke。
 - 本机 `/tmp` 前缀安装 smoke。

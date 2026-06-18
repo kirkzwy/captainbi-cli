@@ -30,12 +30,17 @@ jobs:
         with:
           node-version: "22"
       - run: npm pack --ignore-scripts
+      - run: gh release upload "${GITHUB_REF_NAME}" captainbi-cli-*.tgz --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm install --prefix /tmp/cbi-npm-smoke -g ./captainbi-cli-*.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: /tmp/cbi-npm-smoke/bin/cbi --version
       - run: /tmp/cbi-npm-smoke/bin/cbi doctor local --machine
-      - run: npm install --foreground-scripts --prefix /tmp/cbi-gh-smoke -g github:kirkzwy/captainbi-cli#${GITHUB_REF_NAME}
+      - run: |
+          version="${GITHUB_REF_NAME#v}"
+          npm install --foreground-scripts --prefix /tmp/cbi-gh-smoke -g "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/captainbi-cli-${version}.tgz"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: /tmp/cbi-gh-smoke/bin/cbi --version

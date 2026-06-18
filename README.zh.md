@@ -28,8 +28,8 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 ## Agent 快速开始
 
 ```bash
-# 当前内部/私有项目阶段优先使用 GitHub tag 安装
-npm install -g github:kirkzwy/captainbi-cli#v0.2.3
+# 当前内部/私有项目阶段优先使用 GitHub Release npm tarball 安装
+npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli-0.2.4.tgz
 cbi --version
 cbi doctor local --machine --format json
 
@@ -73,7 +73,7 @@ export NODE_USE_ENV_PROXY=1
 如果 `npm install github:...` 在特定环境仍卡住，可直接下载 GitHub Release 二进制：
 
 ```bash
-curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.3/captainbi-cli_0.2.3_darwin_arm64.tar.gz
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli_0.2.4_darwin_arm64.tar.gz
 tar -xzf cbi.tar.gz
 ./cbi --version
 ```
@@ -257,4 +257,4 @@ go build -o bin/cbi .
 - `--page-all` 当前完整支持 `page_rows` 分页，并支持 `--max-records` 和 `--resume-from-page`。
 - `modified_time_window` 和 `report_date` 已进入 Registry，但目前仍按单次请求执行。
 - POST 接口第一版统一使用 `--data` JSON，还没有做字段级 flags。
-- npm registry 暂不作为当前主路径；Agent 测试阶段使用 `npm install -g github:kirkzwy/captainbi-cli#v0.2.3`。
+- npm registry 暂不作为当前主路径；Agent 测试阶段使用 GitHub Release npm tarball：`npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli-0.2.4.tgz`。
