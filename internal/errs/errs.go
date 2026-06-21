@@ -9,6 +9,7 @@ const (
 	ChannelInvalid             = "CHANNEL_INVALID"
 	ValidationRequiredFlag     = "VALIDATION_REQUIRED_FLAG"
 	ValidationBadParam         = "VALIDATION_BAD_PARAM"
+	InputPathUnsafe            = "INPUT_PATH_UNSAFE"
 	RateLimitExceeded          = "RATE_LIMIT_EXCEEDED"
 	HTTP5xx                    = "HTTP_5XX"
 	NetworkFailed              = "NETWORK_FAILED"
@@ -54,6 +55,8 @@ func Hint(subtype string) string {
 		return "run the command with --help and pass the required flag shown in Examples"
 	case ValidationBadParam:
 		return "fix the parameter value according to --help or cbi schema <domain.command>"
+	case InputPathUnsafe:
+		return "use a relative file inside the current working directory, or pass absolute-path content through stdin"
 	case RateLimitExceeded:
 		return "wait retry_after_ms when present, reduce concurrency, or lower --rate-limit"
 	case HTTP5xx:

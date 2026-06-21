@@ -70,7 +70,7 @@ func resolveChannels(cfg *core.Config, direct string, required bool) ([]channelT
 }
 
 func loadChannelFile(path string) ([]channelTarget, error) {
-	b, err := os.ReadFile(path)
+	b, err := readSafeInputFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +109,14 @@ func loadChannelFile(path string) ([]channelTarget, error) {
 		return targets, nil
 	}
 	return nil, typedH("business", "channel file must be JSON object, array of strings, or array of {alias,open_channel_id}", "use {\"alias\":\"open_channel_id\"} or [{\"alias\":\"main\",\"open_channel_id\":\"...\"}]")
+}
+
+func readSafeInputFile(path string) ([]byte, error) {
+	resolved, err := security.SafeInputPath(path)
+	if err != nil {
+		return nil, internalerrs.New("business", internalerrs.InputPathUnsafe, "unsafe input file: "+err.Error(), internalerrs.Hint(internalerrs.InputPathUnsafe))
+	}
+	return os.ReadFile(resolved)
 }
 
 func channelResult(target channelTarget, resp map[string]any, err error) map[string]any {

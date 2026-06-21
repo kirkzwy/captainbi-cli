@@ -14,6 +14,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/auth"
 	"github.com/kirkzwy/captainbi-cli/internal/client"
 	"github.com/kirkzwy/captainbi-cli/internal/core"
+	internalerrs "github.com/kirkzwy/captainbi-cli/internal/errs"
 )
 
 func TestSchemaOpenAIToolFormat(t *testing.T) {
@@ -174,6 +175,19 @@ func TestSkillDescriptionsUseRoutingContract(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUnsafeInputPathHasStableSubtype(t *testing.T) {
+	_, err := readSafeInputFile(filepath.Join(t.TempDir(), "params.json"))
+	if err == nil {
+		t.Fatal("expected absolute input path to be rejected")
+	}
+	if got := errorSubtype(err); got != internalerrs.InputPathUnsafe {
+		t.Fatalf("subtype=%q want %q", got, internalerrs.InputPathUnsafe)
+	}
+	if hint := hintForError(err); !strings.Contains(hint, "stdin") {
+		t.Fatalf("expected actionable stdin hint, got %q", hint)
 	}
 }
 

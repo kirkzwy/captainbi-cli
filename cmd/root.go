@@ -1281,7 +1281,7 @@ func readArg(v string, stdin io.Reader) (string, error) {
 		return string(b), err
 	}
 	if strings.HasPrefix(v, "@") {
-		b, err := os.ReadFile(strings.TrimPrefix(v, "@"))
+		b, err := readSafeInputFile(strings.TrimPrefix(v, "@"))
 		return string(b), err
 	}
 	return v, nil
