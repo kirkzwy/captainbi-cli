@@ -73,6 +73,8 @@ Agent defaults:
 - Use `--summary` before large pulls.
 - Use `--output-file` for full exports.
 - Do not run write commands unless the user explicitly approves the exact action.
+- Keep file inputs under cwd and use relative paths. Pipe absolute-path content through `--params-stdin` or `--data-stdin`.
+- If `doctor local` reports a Registry warning, run `cbi registry check`; use `cbi registry update` only after reviewing the result.
 
 7. For an explicitly requested write, inspect its schema and generate a preview:
 

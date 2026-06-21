@@ -185,6 +185,13 @@ v0.3.0 自动验证已经覆盖：
 - 使用本地模拟 Release 资产完成 npm tarball `postinstall`、下载 URL、checksum、解压、wrapper、`cbi version 0.3.0` 和 `doctor local` 验证。
 - 在隔离 HOME 中执行 `npx skills add . -y -g`，8 个 CaptainBI skills 均落入 Codex 兼容目录。
 - Skills installer 同时探测 PromptScript 时报告其不支持 global install；本轮已按用户要求移除 WorkBuddy/其他 Agent 验收，该提示不影响 Codex 安装结果。
+
+## 2026-06-21 Registry 运行时覆盖与输入路径安全
+
+- `registry check` 已对真实官方 OpenAPI 验证为 65 个 operation，与有效 Registry 的 65 个命令一致。
+- `registry update` 从项目主分支下载由官方 OpenAPI 生成的 metadata，经兼容性与风险不可降级校验后原子安装到私有配置目录；`registry reset` 可恢复内置版本。
+- 损坏的托管覆盖会回退内置 Registry 并由 `doctor local` 返回 warning；显式 `CAPTAINBI_REGISTRY_FILE` 无效时直接失败，避免静默使用错误配置。
+- `--params-file`、`--data-file`、`--channel-file` 仅允许 cwd 内相对普通文件，并阻止绝对路径、父目录穿越和逃逸符号链接；绝对路径内容改走 stdin。
 - 使用本机真实凭证和 alias 完成 Codex 只读回归：店铺、商品、广告活动日报、FBA 货件、店铺财务月报全部 `ok=true`。
 - 广告日报首次使用 GET multipart 时返回 `report date 字段是必须的`；改为 query 后成功，证明 28 个 GET 文档 body 字段必须在传输层转为 query。
 - raw `--params` 的大整数已改用 `json.Decoder.UseNumber()`，避免日期被格式化为科学计数法。

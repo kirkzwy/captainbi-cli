@@ -73,6 +73,8 @@ Agent 默认规则：
 - 大数据量任务先跑 `--summary`。
 - 全量导出优先配合 `--output-file`。
 - 除非用户明确批准具体动作，否则不要执行写入命令。
+- 文件输入放在当前工作目录内并使用相对路径；绝对路径内容通过 `--params-stdin` 或 `--data-stdin` 传入。
+- 如果 `doctor local` 报告 Registry 告警，先运行 `cbi registry check`；确认后再使用 `cbi registry update`。
 
 7. 用户明确要求写入时，先查看 schema 并生成预览：
 

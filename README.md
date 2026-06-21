@@ -108,6 +108,7 @@ cbi tools export --format openai
 | `CAPTAINBI_RATE_LIMIT` | requests per minute, defaults to 20 |
 | `CAPTAINBI_ACCESS_TOKEN` | inject an existing access token and skip token retrieval |
 | `CAPTAINBI_CONFIG_DIR` | private writable directory for config, token cache, locks and write previews |
+| `CAPTAINBI_REGISTRY_FILE` | explicit compatible Registry metadata override; normally use `cbi registry update` |
 
 ## Safety
 
@@ -119,6 +120,7 @@ cbi tools export --format openai
 - `--dry-run` never sends a request.
 - Live contract checks are opt-in via `cbi doctor contract`.
 - Prefer `--channel <alias>` over raw OpenChannelId in daily Agent workflows.
+- `--params-file`, `--data-file` and `--channel-file` only read relative regular files inside the current working directory. Pipe absolute-path content through stdin.
 
 ## Agent Usage
 
@@ -150,6 +152,17 @@ cbi --channel main goods set-operate-user \
 After a write, query the affected resource and verify the result. If the payload changes, the hash expires, or the outcome is uncertain, generate a new preview instead of replaying it.
 
 Maintainers can run the staged real-write acceptance with `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore`. It requires dedicated test fixtures and never crosses an approval boundary automatically.
+
+## Registry Updates
+
+```bash
+cbi registry check --machine --format json
+cbi registry update --machine --format json
+# Restore the Registry embedded in the binary
+cbi registry reset --machine --format json
+```
+
+`registry update` installs only metadata that preserves existing commands and does not lower write risk or OpenChannelId requirements. `doctor local` reports the effective/embedded versions, override path and any fallback warning.
 
 ## Development
 

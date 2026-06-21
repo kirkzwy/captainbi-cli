@@ -427,8 +427,9 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if regErr != nil {
-				return regErr
+			effectiveReg, registryInfo, loadErr := registry.LoadWithInfo()
+			if loadErr != nil {
+				return loadErr
 			}
 			dir, _ := core.ConfigDir()
 			rateStatus, _ := client.RateLimitStatus(cfg)
@@ -450,8 +451,13 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 				"keyring_available":         core.KeyringAvailable(),
 				"headless_secret_supported": os.Getenv(core.EnvClientSecret) != "" || os.Getenv(core.EnvAccessToken) != "" || cfg.PlainSecretFile != "",
 				"headless_recommendation":   "use CAPTAINBI_ACCESS_TOKEN, CAPTAINBI_CLIENT_SECRET, or cbi config init --client-secret-file",
-				"registry_methods":          len(reg.AllMethods()),
-				"registry_services":         len(reg.Services),
+				"registry_methods":          len(effectiveReg.AllMethods()),
+				"registry_services":         len(effectiveReg.Services),
+				"registry_version":          effectiveReg.Version,
+				"registry_embedded_version": registryInfo.EmbeddedVersion,
+				"registry_overridden":       registryInfo.Overridden,
+				"registry_override_path":    registryInfo.OverridePath,
+				"registry_warning":          registryInfo.Warning,
 				"rate_limit_per_minute":     cfg.RateLimit,
 				"rate_limit_lock_file":      dir + "/rate_limiter.lock",
 				"rate_limit_state_file":     dir + "/rate_limiter.next",
@@ -1212,6 +1218,10 @@ func enforceRisk(cmd *cobra.Command, m registry.Method, req client.Request, targ
 }
 
 func approvalPayload(req client.Request, m registry.Method, channelID string) approval.Payload {
+	registryVersion := "unknown"
+	if current, err := registry.Load(); err == nil && current.Version != "" {
+		registryVersion = current.Version
+	}
 	return approval.Payload{
 		Method:          req.Method,
 		Path:            req.Path,
@@ -1220,7 +1230,7 @@ func approvalPayload(req client.Request, m registry.Method, channelID string) ap
 		ContentType:     req.ContentType,
 		ChannelID:       channelID,
 		RiskLevel:       m.RiskLevel,
-		RegistryVersion: "0.3.0",
+		RegistryVersion: registryVersion,
 	}
 }
 

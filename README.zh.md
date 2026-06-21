@@ -185,6 +185,7 @@ cbi schema goods.list --jq '.params'
 | `CAPTAINBI_RATE_LIMIT` | 请求限流，默认 20 次/分钟 |
 | `CAPTAINBI_ACCESS_TOKEN` | 直接注入已有 access token，跳过 token 获取 |
 | `CAPTAINBI_CONFIG_DIR` | 配置、token、锁和写入预览使用的私有可写目录 |
+| `CAPTAINBI_REGISTRY_FILE` | 显式指定兼容 Registry metadata；日常优先使用 `cbi registry update` |
 
 ## 安全策略
 
@@ -196,6 +197,7 @@ cbi schema goods.list --jq '.params'
 - 未知 raw 非 GET 调用还必须显式传 `--unsafe-raw-write`。
 - `--dry-run` 永远不会发送请求。
 - 真实接口契约检查必须显式执行 `cbi doctor contract`，默认测试不触发真实请求。
+- `--params-file`、`--data-file`、`--channel-file` 只读取当前工作目录内的相对普通文件；绝对路径内容应通过 stdin 传入。
 
 写入类接口风险等级：
 
@@ -262,6 +264,17 @@ cbi --channel main goods set-operate-user \
 写入后必须查询受影响资源做回读验证。payload 改变、hash 过期或结果不确定时，重新生成预览，不得重放。
 
 维护者可使用 `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore` 分阶段执行真实写入验收。该脚本需要专用测试对象，且不会自动跨过任何审批节点。
+
+## Registry 更新
+
+```bash
+cbi registry check --machine --format json
+cbi registry update --machine --format json
+# 恢复二进制内置 Registry
+cbi registry reset --machine --format json
+```
+
+运行时更新只接受保持旧命令兼容、不会降低写入风险等级、不会移除 OpenChannelId 要求的 metadata。`doctor local` 会显示有效版本、内置版本、覆盖文件路径和回退告警。
 
 ## 开发
 
