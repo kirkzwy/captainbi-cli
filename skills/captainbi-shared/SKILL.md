@@ -51,7 +51,9 @@ Do not use CaptainBI for Amazon SP-API-only tasks, logistics files, Feishu-only 
 - Read operations are safe.
 - Write operations require explicit user intent.
 - Use `--dry-run` before any POST.
-- `write_dangerous` and `sync_trigger` require `--confirm`.
+- In Agent mode, every write requires `--confirm-request <hash>` from the exact current dry-run preview.
+- Stop after dry-run and ask the user to approve the preview. Never reuse the hash automatically without that approval.
+- Writes cannot use `--channel all`; approve one channel and payload at a time.
 - Never output token, client_secret, authorization header, or raw OpenChannelId.
 
 ## Rate Limits

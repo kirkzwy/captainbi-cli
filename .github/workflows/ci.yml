@@ -13,7 +13,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.x"
-      - run: go test ./...
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go test -coverprofile=coverage.out ./...
+      - name: Enforce coverage floor
+        run: |
+          coverage="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          awk -v coverage="$coverage" 'BEGIN { if (coverage + 0 < 45) exit 1 }'
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: go run ./tools/gen-registry
       - run: git diff --exit-code
       - run: go build -buildvcs=false -o npm/bin/cbi .
@@ -21,5 +30,6 @@ jobs:
         with:
           node-version: "22"
       - run: npm pack --ignore-scripts
+      - run: tar -tzf captainbi-cli-*.tgz | grep -q 'package/skills/captainbi-shared/SKILL.md'
       - run: node npm/run.js --version
       - run: node npm/run.js doctor local --machine

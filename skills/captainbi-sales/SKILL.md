@@ -22,7 +22,7 @@ Do not use for profit/P&L questions unless order-level sales records are explici
 - Full order pull: `cbi sales orders --channel <alias> --start-modified-time <ts> --end-modified-time <ts> --page-all --output-file orders.json`.
 - Returns: `cbi sales returns --channel <alias> --page 1 --rows 100`.
 - Refunds: `cbi sales refunds --channel <alias> --page 1 --rows 100`.
-- FBM shipping upload is a dangerous write; use `--dry-run` before `--confirm`.
+- FBM shipping upload is asynchronous and dangerous; follow `references/workflows.md`, require an exact approved request hash, then poll the returned feed ID.
 
 ## Examples
 

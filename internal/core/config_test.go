@@ -2,6 +2,7 @@ package core
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -18,6 +19,41 @@ func TestApplyEnv(t *testing.T) {
 	}
 	if cfg.AccessToken != "access-token" || cfg.TokenType != "bearer" || cfg.TokenExpiry.IsZero() {
 		t.Fatalf("access token env not applied: %+v", cfg)
+	}
+}
+
+func TestConfigDirExplicitOverride(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "captainbi-state")
+	t.Setenv(EnvConfigDir, dir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "ignored"))
+	got, err := ConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != dir {
+		t.Fatalf("ConfigDir = %q, want %q", got, dir)
+	}
+	if err := CheckConfigDirWritable(); err != nil {
+		t.Fatalf("override should be writable: %v", err)
+	}
+}
+
+func TestSaveConfigAtomicRoundTrip(t *testing.T) {
+	t.Setenv(EnvConfigDir, t.TempDir())
+	want := &Config{ClientID: "client", BaseURL: "https://example.test", RateLimit: 20, Channels: map[string]string{"main": "channel"}}
+	if err := SaveConfig(want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ClientID != want.ClientID || got.Channels["main"] != "channel" {
+		t.Fatalf("round trip = %#v", got)
+	}
+	matches, err := filepath.Glob(filepath.Join(os.Getenv(EnvConfigDir), ".config-*.tmp"))
+	if err != nil || len(matches) != 0 {
+		t.Fatalf("temporary config files remain: %v %v", matches, err)
 	}
 }
 

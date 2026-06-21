@@ -150,3 +150,42 @@ v0.2.4 验证结果：
 - 本机 `/tmp` 前缀安装不带代理时会长时间无输出，判断卡在 npm/GitHub 网络阶段。
 - 本机显式设置 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`NODE_USE_ENV_PROXY=1` 后安装通过，并验证 `cbi --version` 与 `cbi doctor local --machine --format json`。
 - 真实 Agent 中的只读任务选择、参数补齐、错误恢复和输出保存。
+
+## 2026-06-21 v0.3.0 请求体与写入契约修正
+
+对官方 OpenAPI 重新解析后确认：
+
+- 65 个接口中有 36 个定义了 `requestBody`。
+- 其中 28 个是 GET form-body，8 个是 POST form-body。
+- 官方 media type 写成 `application/form-data`。真实 API 验证表明：GET 不读取 multipart body，字段必须转为 query；POST 规范化为带 boundary 的 `multipart/form-data`。
+- 旧生成器完全忽略 `requestBody`，旧客户端固定发送 JSON，因此“65 个命令已注册”不等于“65 个接口均按官方契约可用”。
+- 官方成功响应统一以业务字段 `code=200` 表示；HTTP 200 且 `code != 200` 必须作为 `API_BUSINESS_ERROR`，不能按空数据成功处理。
+
+v0.3.0 自动验证已经覆盖：
+
+- 65 个 response schema 读取官方 OpenAPI，而不是按业务域推测字段。
+- 36 个 request body、28 个 GET body-to-query、8 个 POST multipart 数量断言。
+- GET body-derived query 的 `page/rows` 自动分页和续页。
+- 8 个 POST 均完成 `dry-run -> request_hash -> 本地 mock multipart 写入`。
+- `cbi api POST` 不再能绕过风险等级；未知 raw write 需要额外 `--unsafe-raw-write`。
+- Agent 模式中的所有写入均需要 `--confirm-request`，并禁止 `--channel all`。
+- request hash 绑定 method、path、query、body、content type、channel、risk 和 Registry 版本；15 分钟过期且发送前一次性消费。
+- 无效 alias、无效 OpenChannelId、坏时间戳、HTTP 200 业务错误分别进入稳定 subtype。
+
+真实写入验收采用三类代表接口，不自动触碰 FBM 发货、成本或运营费用：
+
+- `write_safe`：设置测试商品运营人员，回读后恢复。
+- `write_dangerous`：设置测试商品分组，回读后恢复。
+- `sync_trigger`：同步允许重复同步的测试 FBA 货件。
+
+使用 `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore` 分阶段执行。真实写入结果、回读和恢复在取得本地测试 fixture 与用户逐项批准前仍属于待验证项。
+
+## 2026-06-21 Codex v0.3.0 预发布回归
+
+- 使用本地模拟 Release 资产完成 npm tarball `postinstall`、下载 URL、checksum、解压、wrapper、`cbi version 0.3.0` 和 `doctor local` 验证。
+- 在隔离 HOME 中执行 `npx skills add . -y -g`，8 个 CaptainBI skills 均落入 Codex 兼容目录。
+- Skills installer 同时探测 PromptScript 时报告其不支持 global install；本轮已按用户要求移除 WorkBuddy/其他 Agent 验收，该提示不影响 Codex 安装结果。
+- 使用本机真实凭证和 alias 完成 Codex 只读回归：店铺、商品、广告活动日报、FBA 货件、店铺财务月报全部 `ok=true`。
+- 广告日报首次使用 GET multipart 时返回 `report date 字段是必须的`；改为 query 后成功，证明 28 个 GET 文档 body 字段必须在传输层转为 query。
+- raw `--params` 的大整数已改用 `json.Decoder.UseNumber()`，避免日期被格式化为科学计数法。
+- 六个平台组合（darwin/linux/windows × amd64/arm64）交叉编译通过。

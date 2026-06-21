@@ -7,7 +7,10 @@ type Param struct {
 	Type        string `json:"type"`
 	Required    bool   `json:"required"`
 	Description string `json:"description,omitempty"`
+	Format      string `json:"format,omitempty"`
 	Default     any    `json:"default,omitempty"`
+	Enum        []any  `json:"enum,omitempty"`
+	Min         int    `json:"min,omitempty"`
 	Max         int    `json:"max,omitempty"`
 }
 
@@ -28,6 +31,10 @@ type Method struct {
 	Pagination            Pagination `json:"pagination"`
 	RiskLevel             string     `json:"riskLevel"`
 	RequiresOpenChannelID bool       `json:"requiresOpenChannelId"`
+	ContentType           string     `json:"contentType,omitempty"`
+	RequestBodyRequired   bool       `json:"requestBodyRequired,omitempty"`
+	RequestBodySchema     any        `json:"requestBodySchema,omitempty"`
+	SuccessCodes          []int      `json:"successCodes,omitempty"`
 	TableColumns          []string   `json:"tableColumns,omitempty"`
 	ResponseSchema        any        `json:"responseSchema,omitempty"`
 }

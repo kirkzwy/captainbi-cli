@@ -19,6 +19,15 @@ cbi config init --client-id "$CAPTAINBI_CLIENT_ID" --client-secret-file /path/to
 CAPTAINBI_ACCESS_TOKEN='<token>' cbi +sites --machine
 ```
 
+If the Agent cannot write the default config directory, point all CaptainBI state to a private writable path:
+
+```bash
+export CAPTAINBI_CONFIG_DIR="$HOME/.config/captainbi-agent"
+cbi doctor local --machine --format json
+```
+
+Keep this directory private. It contains token cache, channel aliases, rate-limit state and pending write previews.
+
 Recovery:
 
 - `invalid_client`: verify APPID/client_secret, then rerun config init.

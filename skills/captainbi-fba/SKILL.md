@@ -22,7 +22,7 @@ Do not use for customer orders, product reviews, advertising, or finance reports
 - Shipments: `cbi fba shipments --channel <alias>`.
 - Storage fee: `cbi fba storage-fee --channel <alias>`.
 - ASIN monitor: `cbi fba asin-monitor --channel <alias>`.
-- Sync shipment is `sync_trigger`; use `--dry-run` first and `--confirm` only after explicit approval.
+- Shipment sync is `sync_trigger`; preview exact shipment IDs, stop for approval, use `--confirm-request`, then query status instead of retriggering.
 
 ## Examples
 

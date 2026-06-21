@@ -63,6 +63,7 @@ Stable error subtypes:
 - `AUTH_INVALID_CLIENT`
 - `AUTH_TOKEN_REFRESH_FAILED`
 - `CHANNEL_MISSING`
+- `CHANNEL_ALIAS_NOT_FOUND`
 - `CHANNEL_INVALID`
 - `VALIDATION_REQUIRED_FLAG`
 - `VALIDATION_BAD_PARAM`
@@ -70,4 +71,28 @@ Stable error subtypes:
 - `HTTP_5XX`
 - `NETWORK_FAILED`
 - `CONFIRMATION_REQUIRED`
+- `WRITE_CONFIRMATION_MISMATCH`
+- `WRITE_CONFIRMATION_EXPIRED`
+- `WRITE_CONFIRMATION_REPLAY`
+- `WRITE_MULTI_CHANNEL_FORBIDDEN`
 - `API_BUSINESS_ERROR`
+
+Write dry-run data includes:
+
+```json
+{
+  "dry_run": true,
+  "method": "POST",
+  "path": "/v1/...",
+  "content_type": "multipart/form-data",
+  "risk_level": "write_dangerous",
+  "channel": "main",
+  "body": {},
+  "approval": {
+    "required": true,
+    "request_hash": "...",
+    "expires_at": "...",
+    "confirm_flag": "--confirm-request"
+  }
+}
+```

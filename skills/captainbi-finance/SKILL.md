@@ -23,7 +23,7 @@ Do not use for raw order lists, ad keyword performance, FBA inventory, or review
 - ASIN daily: `cbi finance asin-daily --channel <alias> --report-date YYYYMMDD`.
 - Transactions: `cbi +store-transactions --channel <alias> --start YYYYMMDD --end YYYYMMDD --page-all`.
 - Claims/VAT: `cbi finance claims`, `cbi finance vat`.
-- Cost/rule writes require dry-run and `--confirm`.
+- Cost/rule writes require a dry-run, explicit approval of amount/currency/recurrence, `--confirm-request`, and a read-back check; see `references/workflows.md`.
 
 ## Examples
 

@@ -17,9 +17,24 @@ type spec struct {
 }
 
 type operation struct {
-	Tags       []string    `json:"tags"`
-	Summary    string      `json:"summary"`
-	Parameters []parameter `json:"parameters"`
+	Tags        []string            `json:"tags"`
+	Summary     string              `json:"summary"`
+	Parameters  []parameter         `json:"parameters"`
+	RequestBody *requestBody        `json:"requestBody"`
+	Responses   map[string]response `json:"responses"`
+}
+
+type requestBody struct {
+	Required bool             `json:"required"`
+	Content  map[string]media `json:"content"`
+}
+
+type response struct {
+	Content map[string]media `json:"content"`
+}
+
+type media struct {
+	Schema map[string]any `json:"schema"`
 }
 
 type parameter struct {
@@ -53,6 +68,10 @@ type method struct {
 	Pagination            paging   `json:"pagination"`
 	RiskLevel             string   `json:"riskLevel"`
 	RequiresOpenChannelID bool     `json:"requiresOpenChannelId"`
+	ContentType           string   `json:"contentType,omitempty"`
+	RequestBodyRequired   bool     `json:"requestBodyRequired,omitempty"`
+	RequestBodySchema     any      `json:"requestBodySchema,omitempty"`
+	SuccessCodes          []int    `json:"successCodes,omitempty"`
 	TableColumns          []string `json:"tableColumns,omitempty"`
 	ResponseSchema        any      `json:"responseSchema,omitempty"`
 }
@@ -64,7 +83,10 @@ type param struct {
 	Type        string `json:"type"`
 	Required    bool   `json:"required"`
 	Description string `json:"description,omitempty"`
+	Format      string `json:"format,omitempty"`
 	Default     any    `json:"default,omitempty"`
+	Enum        []any  `json:"enum,omitempty"`
+	Min         int    `json:"min,omitempty"`
 	Max         int    `json:"max,omitempty"`
 }
 
@@ -130,36 +152,73 @@ func buildRegistry(source string, s spec) registry {
 				Summary:               op.Summary,
 				RiskLevel:             riskFor(p, strings.ToUpper(httpMethod)),
 				RequiresOpenChannelID: requiresOpenChannel(op.Parameters),
-				Pagination:            paginationFor(op.Parameters),
 				TableColumns:          tableColumnsFor(domain, p),
-				ResponseSchema:        responseSchemaFor(domain, p),
+				ResponseSchema:        responseSchemaFor(op, domain, p),
+				SuccessCodes:          []int{200},
 			}
 			for _, raw := range op.Parameters {
 				if strings.EqualFold(raw.Name, "authorization") {
 					continue
 				}
-				p := param{
+				generated := param{
 					Name:        raw.Name,
 					Flag:        flagName(raw.Name),
 					Location:    raw.In,
 					Type:        fmt.Sprint(raw.Schema["type"]),
 					Required:    raw.Required,
 					Description: raw.Description,
+					Format:      inferFormat(raw.Name, fmt.Sprint(raw.Schema["type"])),
+					Enum:        anySlice(raw.Schema["enum"]),
 				}
-				if p.Name == "page" {
-					p.Default = 1
-				}
-				if p.Name == "rows" {
-					p.Default = 100
-					p.Max = 100
-				}
-				m.Params = append(m.Params, p)
+				applyParamDefaults(&generated)
+				m.Params = append(m.Params, generated)
 			}
+			if contentType, bodySchema, ok := requestSchema(op.RequestBody); ok {
+				if m.HTTPMethod != "GET" && m.HTTPMethod != "HEAD" {
+					m.ContentType = normalizeContentType(contentType)
+				}
+				applyBodyOverrides(p, bodySchema)
+				m.RequestBodySchema = bodySchema
+				m.RequestBodyRequired = m.HTTPMethod != "GET" && m.HTTPMethod != "HEAD" && (op.RequestBody.Required || bodyRequiredFor(p))
+				required := requiredSet(bodySchema, requiredBodyFields(p, bodySchema))
+				if properties, ok := bodySchema["properties"].(map[string]any); ok {
+					names := make([]string, 0, len(properties))
+					for name := range properties {
+						names = append(names, name)
+					}
+					sort.Strings(names)
+					for _, name := range names {
+						rawSchema, _ := properties[name].(map[string]any)
+						typ := fmt.Sprint(rawSchema["type"])
+						if typ == "array" || typ == "object" {
+							continue
+						}
+						location := "form"
+						if m.HTTPMethod == "GET" || m.HTTPMethod == "HEAD" {
+							location = "query"
+						}
+						generated := param{
+							Name:        name,
+							Flag:        flagName(name),
+							Location:    location,
+							Type:        typ,
+							Required:    required[name],
+							Description: fmt.Sprint(rawSchema["description"]),
+							Format:      inferFormat(name, typ),
+							Enum:        anySlice(rawSchema["enum"]),
+						}
+						applyParamDefaults(&generated)
+						m.Params = removeNonHeaderParam(m.Params, name)
+						m.Params = append(m.Params, generated)
+					}
+				}
+			}
+			m.Pagination = paginationFor(m.Params)
 			services[domain].Methods = append(services[domain].Methods, m)
 		}
 	}
 	order := []string{"goods", "sales", "finance", "fba", "ads", "monitor"}
-	reg := registry{Version: "0.2.0", Source: source}
+	reg := registry{Version: "0.3.0", Source: source}
 	for _, name := range order {
 		sort.Slice(services[name].Methods, func(i, j int) bool {
 			return services[name].Methods[i].CommandName < services[name].Methods[j].CommandName
@@ -271,7 +330,7 @@ func requiresOpenChannel(params []parameter) bool {
 	return false
 }
 
-func paginationFor(params []parameter) paging {
+func paginationFor(params []param) paging {
 	names := map[string]bool{}
 	for _, p := range params {
 		names[p.Name] = true
@@ -311,7 +370,17 @@ func tableColumnsFor(domain, path string) []string {
 	}
 }
 
-func responseSchemaFor(domain, path string) any {
+func responseSchemaFor(op operation, domain, path string) any {
+	if success, ok := op.Responses["200"]; ok {
+		if content, ok := success.Content["application/json"]; ok && len(content.Schema) > 0 {
+			return content.Schema
+		}
+		for _, content := range success.Content {
+			if len(content.Schema) > 0 {
+				return content.Schema
+			}
+		}
+	}
 	props := map[string]any{
 		"code": map[string]any{"type": "integer"},
 		"msg":  map[string]any{"type": "string"},
@@ -340,6 +409,167 @@ func responseSchemaFor(domain, path string) any {
 	return map[string]any{"type": "object", "properties": props}
 }
 
+func requestSchema(body *requestBody) (string, map[string]any, bool) {
+	if body == nil || len(body.Content) == 0 {
+		return "", nil, false
+	}
+	for _, preferred := range []string{"application/form-data", "multipart/form-data", "application/json"} {
+		if content, ok := body.Content[preferred]; ok && len(content.Schema) > 0 {
+			return preferred, content.Schema, true
+		}
+	}
+	keys := make([]string, 0, len(body.Content))
+	for key := range body.Content {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if schema := body.Content[key].Schema; len(schema) > 0 {
+			return key, schema, true
+		}
+	}
+	return "", nil, false
+}
+
+func normalizeContentType(value string) string {
+	if value == "application/form-data" {
+		return "multipart/form-data"
+	}
+	return value
+}
+
+func requiredSet(schema map[string]any, overrides []string) map[string]bool {
+	out := map[string]bool{}
+	for _, value := range anySlice(schema["required"]) {
+		if name, ok := value.(string); ok {
+			out[name] = true
+		}
+	}
+	for _, name := range overrides {
+		out[name] = true
+	}
+	if len(out) > 0 {
+		required := make([]string, 0, len(out))
+		for name := range out {
+			required = append(required, name)
+		}
+		sort.Strings(required)
+		schema["required"] = required
+	}
+	return out
+}
+
+func applyBodyOverrides(path string, schema map[string]any) {
+	properties, _ := schema["properties"].(map[string]any)
+	setNestedRequired := func(property string, fields []string) {
+		container, _ := properties[property].(map[string]any)
+		if len(container) == 0 {
+			return
+		}
+		container["minItems"] = 1
+		items, _ := container["items"].(map[string]any)
+		if len(items) > 0 {
+			items["required"] = fields
+		}
+	}
+	switch path {
+	case "/v1/open_order/upload_fbm_order_ship_info":
+		setNestedRequired("data", []string{"amazon_order_id", "carrier_code", "shipping_method", "shipper_tracking_number", "amazon_order_item_code", "quantity"})
+	case "/v1/open_finance/set_goods_cost":
+		setNestedRequired("data", []string{"sku", "purchasing_cost_currency_code", "fba_cost_currency_code", "fbm_cost_currency_code", "purchasing_cost", "fba_cost", "fbm_cost"})
+	case "/v1/open_finance/set_rule":
+		if endDate, ok := properties["jieshuriqi"].(map[string]any); ok {
+			endDate["type"] = "string"
+		}
+	}
+}
+
+func requiredBodyFields(path string, schema map[string]any) []string {
+	switch path {
+	case "/v1/open_goods/set_goods_operate_user":
+		return []string{"goods_id", "operation_user_admin_id"}
+	case "/v1/open_goods/set_goods_group":
+		return []string{"goods_id", "group_id"}
+	case "/v1/open_goods/edit_goods_group":
+		return []string{"group_name"}
+	case "/v1/open_order/upload_fbm_order_ship_info", "/v1/open_finance/set_goods_cost":
+		return []string{"data"}
+	case "/v1/open_fba/sync_shipment":
+		return []string{"shipment_ids"}
+	}
+	if strings.Contains(path, "_report") || strings.Contains(path, "month_analysis") {
+		properties, _ := schema["properties"].(map[string]any)
+		if _, ok := properties["report_date"]; ok {
+			return []string{"report_date"}
+		}
+	}
+	return nil
+}
+
+func bodyRequiredFor(path string) bool {
+	if path == "/v1/open_user/set_channel_operation_mode" {
+		return false
+	}
+	return strings.Contains(path, "/set_") || strings.Contains(path, "/edit_") || strings.Contains(path, "/upload_") || strings.Contains(path, "/sync_")
+}
+
+func applyParamDefaults(p *param) {
+	if p.Name == "page" {
+		p.Default = 1
+		p.Min = 1
+	}
+	if p.Name == "rows" {
+		p.Default = 100
+		p.Min = 1
+		p.Max = 100
+	}
+}
+
+func inferFormat(name, typ string) string {
+	name = strings.ToLower(name)
+	if strings.Contains(name, "modified_time") {
+		return "unix_seconds"
+	}
+	if name == "report_date" || strings.HasSuffix(name, "_date") || strings.Contains(name, "riqi") {
+		return "date"
+	}
+	if typ == "integer" {
+		return "int"
+	}
+	if typ == "number" {
+		return "number"
+	}
+	if typ == "boolean" {
+		return "boolean"
+	}
+	return "string"
+}
+
+func anySlice(value any) []any {
+	if values, ok := value.([]any); ok {
+		return values
+	}
+	if values, ok := value.([]string); ok {
+		out := make([]any, 0, len(values))
+		for _, value := range values {
+			out = append(out, value)
+		}
+		return out
+	}
+	return nil
+}
+
+func removeNonHeaderParam(params []param, name string) []param {
+	out := params[:0]
+	for _, p := range params {
+		if p.Name == name && p.Location != "header" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
 func arraySchema(fields map[string]string) map[string]any {
 	props := map[string]any{}
 	for k, typ := range fields {
@@ -359,14 +589,48 @@ func flagName(name string) string {
 func renderDocs(reg registry) string {
 	var b strings.Builder
 	b.WriteString("# CaptainBI Endpoints\n\n")
-	b.WriteString("| Domain | Command | Method | Path | Risk | Pagination | Summary |\n")
-	b.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
+	b.WriteString("| Domain | Command | Method | Path | Content Type | Required Inputs | Risk | Pagination | Summary |\n")
+	b.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, svc := range reg.Services {
 		for _, m := range svc.Methods {
-			fmt.Fprintf(&b, "| %s | `cbi %s %s` | %s | `%s` | %s | %s | %s |\n", svc.Domain, svc.Domain, m.CommandName, m.HTTPMethod, m.FullPath, m.RiskLevel, m.Pagination.Type, strings.ReplaceAll(m.Summary, "|", "\\|"))
+			fmt.Fprintf(&b, "| %s | `cbi %s %s` | %s | `%s` | %s | %s | %s | %s | %s |\n", svc.Domain, svc.Domain, m.CommandName, m.HTTPMethod, m.FullPath, emptyDash(m.ContentType), requiredInputs(m), m.RiskLevel, m.Pagination.Type, strings.ReplaceAll(m.Summary, "|", "\\|"))
 		}
 	}
 	return b.String()
+}
+
+func requiredInputs(m method) string {
+	values := []string{}
+	seen := map[string]bool{}
+	for _, p := range m.Params {
+		if p.Required && !strings.EqualFold(p.Name, "OpenChannelId") {
+			value := "`--" + p.Flag + "`"
+			values = append(values, value)
+			seen[p.Name] = true
+		}
+	}
+	if schema, ok := m.RequestBodySchema.(map[string]any); ok {
+		for _, name := range anySlice(schema["required"]) {
+			text, _ := name.(string)
+			if text != "" && !seen[text] {
+				values = append(values, "`data."+text+"`")
+			}
+		}
+	}
+	if m.RequiresOpenChannelID {
+		values = append([]string{"`--channel`"}, values...)
+	}
+	if len(values) == 0 {
+		return "-"
+	}
+	return strings.Join(values, ", ")
+}
+
+func emptyDash(value string) string {
+	if value == "" {
+		return "-"
+	}
+	return "`" + value + "`"
 }
 
 func must(err error) {

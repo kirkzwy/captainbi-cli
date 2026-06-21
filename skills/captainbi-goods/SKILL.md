@@ -36,4 +36,4 @@ cbi --channel main goods list --start-modified-time 1781424057 --end-modified-ti
 
 - `start_modified_time` and `end_modified_time` use second-level Unix timestamps.
 - `goods list` may not return `max_result`; rely on CLI pagination metadata.
-- Write commands such as `set-group` and `edit-group` require dry-run and explicit confirmation.
+- For operator, group or shop-mode writes, read `references/workflows.md`; use dry-run, stop for user approval, then pass the exact `--confirm-request` hash and verify by reading back.

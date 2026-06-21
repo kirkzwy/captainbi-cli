@@ -94,6 +94,15 @@ func requestJSONSchema(m registry.Method) map[string]any {
 		if p.Max > 0 {
 			schema["maximum"] = p.Max
 		}
+		if p.Min > 0 {
+			schema["minimum"] = p.Min
+		}
+		if len(p.Enum) > 0 {
+			schema["enum"] = p.Enum
+		}
+		if p.Format != "" && p.Format != "string" {
+			schema["format"] = p.Format
+		}
 		properties[p.Flag] = schema
 		if p.Required {
 			required = append(required, p.Flag)
@@ -106,17 +115,20 @@ func requestJSONSchema(m registry.Method) map[string]any {
 		}
 		required = append(required, "open_channel_id")
 	}
-	if m.HTTPMethod != "GET" {
-		properties["data"] = map[string]any{
-			"type":        "object",
-			"description": "JSON body for the write request. Use dry_run=true before sending dangerous writes.",
+	if m.RequestBodySchema != nil && m.HTTPMethod != "GET" && m.HTTPMethod != "HEAD" {
+		properties["data"] = m.RequestBodySchema
+		if requiresComplexBodyInput(m) {
+			required = append(required, "data")
 		}
-		required = append(required, "data")
 		if m.RiskLevel != "read" {
 			properties["dry_run"] = map[string]any{
 				"type":        "boolean",
 				"description": "Preview request without sending it.",
 				"default":     true,
+			}
+			properties["confirm_request"] = map[string]any{
+				"type":        "string",
+				"description": "Exact request hash from a current dry-run preview. Use only after explicit user approval and without changing the request.",
 			}
 		}
 	}
@@ -168,10 +180,43 @@ func schemaView(m registry.Method) map[string]any {
 		"pagination":               m.Pagination,
 		"risk_level":               m.RiskLevel,
 		"requires_open_channel_id": m.RequiresOpenChannelID,
+		"content_type":             m.ContentType,
+		"request_body_required":    m.RequestBodyRequired,
+		"request_body_schema":      m.RequestBodySchema,
+		"success_codes":            m.SuccessCodes,
 		"table_columns":            m.TableColumns,
 		"request_schema":           requestJSONSchema(m),
 		"response_schema":          m.ResponseSchema,
 	}
+}
+
+func requiresComplexBodyInput(m registry.Method) bool {
+	if !m.RequestBodyRequired {
+		return false
+	}
+	schema, ok := m.RequestBodySchema.(map[string]any)
+	if !ok {
+		return true
+	}
+	properties, _ := schema["properties"].(map[string]any)
+	represented := map[string]bool{}
+	for _, p := range m.Params {
+		if p.Location == "form" {
+			represented[p.Name] = true
+		}
+	}
+	for _, name := range anyStrings(schema["required"]) {
+		if !represented[name] {
+			return true
+		}
+		if property, ok := properties[name].(map[string]any); ok {
+			typ := fmt.Sprint(property["type"])
+			if typ == "array" || typ == "object" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func domainFromName(name string) string {

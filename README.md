@@ -5,19 +5,21 @@ is kept as an alias.
 
 ## Status
 
-This repository is an early Agent-ready CaptainBI CLI:
+This repository is an Agent-ready CaptainBI CLI:
 
 - Go + Cobra single binary.
 - OpenAPI -> Registry metadata -> generated service commands.
 - Built-in token caching, OAuth `scope=all`, redaction, 20 req/min rate limiting and 429 retry.
 - Generic `api`, generated domain commands, shortcuts, schema and doctor commands.
 - Real read-only smoke has passed for auth, sites, shops, goods, orders, finance, ads, FBA and reviews.
+- Registry preserves all 65 official response schemas and 36 documented request bodies. Real contract tests encode the 28 GET body fields as query parameters and the 8 POST bodies as multipart.
+- Agent writes use payload-bound, expiring dry-run approval hashes and one-channel-at-a-time protection.
 
 ## Quick Start
 
 ```bash
 # Preferred Agent path for this private/internal phase
-npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli-0.2.4.tgz
+npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz
 cbi --version
 cbi doctor local --machine --format json
 
@@ -56,7 +58,7 @@ export NODE_USE_ENV_PROXY=1
 Fallback without npm GitHub install:
 
 ```bash
-curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli_0.2.4_darwin_arm64.tar.gz
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli_0.3.0_darwin_arm64.tar.gz
 tar -xzf cbi.tar.gz
 ./cbi --version
 ```
@@ -77,14 +79,14 @@ cbi +orders --channel main --start 1781424057 --end 1781510457
 cbi +goods --channel main --modified-since 1781424057 --modified-until 1781510457
 cbi +finance-daily --channel main --date 20260615
 cbi +inventory --channel main --modified-since 1781424057 --modified-until 1781510457
-cbi +ads-campaign-report --channel main --summary
+cbi +ads-campaign-report --channel main --date 20260615 --summary
 cbi +reviews --channel main --summary
 cbi +store-transactions --channel main --start 20260601 --end 20260615
 
 # Generated business-domain commands
 cbi goods list --channel main --start-modified-time 1700000000 --end-modified-time 1700100000
 cbi finance store-daily --channel main --report-date 20240101
-cbi ads campaign-report --channel main
+cbi ads advertise-campaign-report --channel main --report-date 20260615
 
 # Generic API escape hatch
 cbi api GET /v1/open_user/get_site_list
@@ -105,11 +107,15 @@ cbi tools export --format openai
 | `CAPTAINBI_OPEN_CHANNEL_ID` | default OpenChannelId |
 | `CAPTAINBI_RATE_LIMIT` | requests per minute, defaults to 20 |
 | `CAPTAINBI_ACCESS_TOKEN` | inject an existing access token and skip token retrieval |
+| `CAPTAINBI_CONFIG_DIR` | private writable directory for config, token cache, locks and write previews |
 
 ## Safety
 
 - Secrets and tokens are redacted in dry-run, config display and errors.
-- Dangerous POST endpoints require `--confirm`.
+- Agent writes require `--dry-run`, explicit user approval, then the unchanged request with `--confirm-request <request_hash>`.
+- Approval hashes expire after 15 minutes, are consumed before sending and cannot be replayed.
+- Writes cannot use `--channel all`; approve one channel and payload at a time.
+- Unknown raw non-GET calls require `--unsafe-raw-write` in addition to the approval flow.
 - `--dry-run` never sends a request.
 - Live contract checks are opt-in via `cbi doctor contract`.
 - Prefer `--channel <alias>` over raw OpenChannelId in daily Agent workflows.
@@ -123,6 +129,27 @@ cbi tools export --format openai
 - Read `meta.has_more` and `meta.next_page` to decide whether to continue; resume long pulls with `--resume-from-page`.
 - Success output uses `ok/data/meta`; failure output uses `ok/error/meta`.
 - Read `error.kind`, `error.subtype`, `error.hint`, `error.api_code` and `error.api_msg` on failures.
+- CaptainBI `code != 200` is a failed call even when HTTP status is 200.
+
+## Agent Write Flow
+
+```bash
+# 1. Preview only
+cbi --channel main goods set-operate-user \
+  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --dry-run --machine --format json
+
+# 2. Stop and obtain explicit user approval for the exact preview
+
+# 3. Send the unchanged request with data.approval.request_hash
+cbi --channel main goods set-operate-user \
+  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --confirm-request <request_hash> --machine --format json
+```
+
+After a write, query the affected resource and verify the result. If the payload changes, the hash expires, or the outcome is uncertain, generate a new preview instead of replaying it.
+
+Maintainers can run the staged real-write acceptance with `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore`. It requires dedicated test fixtures and never crosses an approval boundary automatically.
 
 ## Development
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kirkzwy/captainbi-cli/internal/core"
+	"github.com/kirkzwy/captainbi-cli/internal/lockfile"
 )
 
 type TokenResponse struct {
@@ -130,18 +131,5 @@ func acquireTokenLock(ctx context.Context) (func(), error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, err
-	}
-	lockDir := filepath.Join(dir, "token.lock")
-	for {
-		if err := os.Mkdir(lockDir, 0o700); err == nil {
-			return func() { _ = os.Remove(lockDir) }, nil
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
+	return lockfile.Acquire(ctx, filepath.Join(dir, "token.lock"))
 }

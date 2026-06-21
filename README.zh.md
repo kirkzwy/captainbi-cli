@@ -4,7 +4,7 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 
 ## 当前状态
 
-项目目前处于 Agent-ready 早期可用阶段：
+项目目前处于 Agent-ready 可测试阶段：
 
 - Go + Cobra 单二进制 CLI。
 - 使用 `OpenAPI -> Registry 元数据 -> 业务域命令` 的生成架构。
@@ -13,6 +13,8 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 - 已完成真实只读 smoke：认证、站点、店铺、商品、订单、财务、广告、FBA、Review。
 - 已提供通用 `api`、业务域命令、快捷命令、`schema` 和 `doctor` 命令。
 - 已具备 GitHub Release / npm wrapper / Agent Skills 骨架；当前阶段优先走 GitHub 安装，不依赖 npm registry 发布。
+- Registry 已保留 65 个接口的官方响应 schema 和 36 个文档 request body；真实契约要求 28 个 GET body 字段在线路上转为 query，8 个 POST 使用 multipart。
+- Agent 写入采用绑定 payload、15 分钟有效且一次性消费的 dry-run 审批 hash。
 
 接口按 6 个业务域组织：
 
@@ -29,7 +31,7 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 
 ```bash
 # 当前内部/私有项目阶段优先使用 GitHub Release npm tarball 安装
-npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli-0.2.4.tgz
+npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz
 cbi --version
 cbi doctor local --machine --format json
 
@@ -73,7 +75,7 @@ export NODE_USE_ENV_PROXY=1
 如果 `npm install github:...` 在特定环境仍卡住，可直接下载 GitHub Release 二进制：
 
 ```bash
-curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli_0.2.4_darwin_arm64.tar.gz
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli_0.3.0_darwin_arm64.tar.gz
 tar -xzf cbi.tar.gz
 ./cbi --version
 ```
@@ -99,7 +101,7 @@ cbi +orders --channel main --start 1781424057 --end 1781510457
 cbi +goods --channel main --modified-since 1781424057 --modified-until 1781510457
 cbi +finance-daily --channel main --date 20260615
 cbi +inventory --channel main --modified-since 1781424057 --modified-until 1781510457
-cbi +ads-campaign-report --channel main --summary
+cbi +ads-campaign-report --channel main --date 20260615 --summary
 cbi +reviews --channel main --summary
 cbi +store-transactions --channel main --start 20260601 --end 20260615
 ```
@@ -125,8 +127,9 @@ cbi finance store-daily \
   --open-channel-id oc_xxx \
   --report-date 20240101
 
-cbi ads campaign-report \
-  --open-channel-id oc_xxx
+cbi ads advertise-campaign-report \
+  --open-channel-id oc_xxx \
+  --report-date 20240101
 ```
 
 ### 3. 通用 API
@@ -167,7 +170,8 @@ cbi schema goods.list --jq '.params'
 | `--summary` | 只输出行数和字段列表，适合 Agent 探测数据规模 |
 | `--output-file` | 将完整结果写入文件，stdout 只返回文件路径和行数 |
 | `--channel` | 使用 `config channels` 中的店铺别名，也可用 `all` |
-| `--confirm` | 确认执行危险写入或同步类接口 |
+| `--confirm` | 仅保留给交互式 TTY 的兼容确认；Agent 不使用 |
+| `--confirm-request` | 使用当前 dry-run 生成的精确请求 hash 批准 Agent 写入 |
 | `--rate-limit` | 覆盖默认限流，单位为请求数/分钟 |
 
 ## 环境变量
@@ -180,12 +184,16 @@ cbi schema goods.list --jq '.params'
 | `CAPTAINBI_OPEN_CHANNEL_ID` | 默认店铺密钥 |
 | `CAPTAINBI_RATE_LIMIT` | 请求限流，默认 20 次/分钟 |
 | `CAPTAINBI_ACCESS_TOKEN` | 直接注入已有 access token，跳过 token 获取 |
+| `CAPTAINBI_CONFIG_DIR` | 配置、token、锁和写入预览使用的私有可写目录 |
 
 ## 安全策略
 
 - `client_secret` 不通过普通 flag 传递，避免出现在 shell history 或进程列表中。
 - token、secret、authorization、OpenChannelId 在 dry-run、错误和配置展示中会脱敏。
-- 危险 POST 接口必须显式传 `--confirm`。
+- Agent 写入必须先 `--dry-run`，由用户确认完全相同的预览后，再传 `--confirm-request <request_hash>`。
+- hash 15 分钟过期，并在发送前消费，不能重放。
+- 写入不支持 `--channel all`，必须逐店铺、逐 payload 审批。
+- 未知 raw 非 GET 调用还必须显式传 `--unsafe-raw-write`。
 - `--dry-run` 永远不会发送请求。
 - 真实接口契约检查必须显式执行 `cbi doctor contract`，默认测试不触发真实请求。
 
@@ -194,9 +202,9 @@ cbi schema goods.list --jq '.params'
 | 风险等级 | 行为 |
 | --- | --- |
 | `read` | 只读接口，直接执行 |
-| `write_safe` | 写入接口，交互提示，可用 `--yes` 跳过 |
-| `write_dangerous` | 危险写入，必须 `--confirm` |
-| `sync_trigger` | 会触发同步，必须 `--confirm` 并显示警告 |
+| `write_safe` | TTY 可交互确认；Agent 必须使用审批 hash |
+| `write_dangerous` | Agent 必须使用审批 hash |
+| `sync_trigger` | Agent 必须使用审批 hash，并显示外部同步警告 |
 
 ## Doctor
 
@@ -231,8 +239,29 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 - 店铺级接口优先使用 `--channel <alias>`，不要在日志中输出原始 OpenChannelId。
 - 成功输出读取 `ok/data/meta`；失败输出读取 `ok/error/meta`。
 - 失败时优先读取 `error.kind`、`error.subtype`、`error.hint`、`error.api_code`、`error.api_msg` 来决定是否重试或补参数。
+- 即使 HTTP 为 200，只要 CaptainBI `code != 200`，CLI 也会返回失败，不能把空 data 当作成功。
 - 翻页时优先读取 `meta.has_more` 和 `meta.next_page`，不要自行推断是否还有下一页。
 - `page_rows` 分页不强依赖 CaptainBI 返回总数字段；以 `len(data) < rows` 作为主要结束条件。
+
+## Agent 写入流程
+
+```bash
+# 1. 仅生成预览
+cbi --channel main goods set-operate-user \
+  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --dry-run --machine --format json
+
+# 2. 停下并请用户确认 method、path、channel 和 body
+
+# 3. 请求不变时，使用 data.approval.request_hash 执行
+cbi --channel main goods set-operate-user \
+  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --confirm-request <request_hash> --machine --format json
+```
+
+写入后必须查询受影响资源做回读验证。payload 改变、hash 过期或结果不确定时，重新生成预览，不得重放。
+
+维护者可使用 `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore` 分阶段执行真实写入验收。该脚本需要专用测试对象，且不会自动跨过任何审批节点。
 
 ## 开发
 
@@ -256,5 +285,5 @@ go build -o bin/cbi .
 
 - `--page-all` 当前完整支持 `page_rows` 分页，并支持 `--max-records` 和 `--resume-from-page`。
 - `modified_time_window` 和 `report_date` 已进入 Registry，但目前仍按单次请求执行。
-- POST 接口第一版统一使用 `--data` JSON，还没有做字段级 flags。
-- npm registry 暂不作为当前主路径；Agent 测试阶段使用 GitHub Release npm tarball：`npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.2.4/captainbi-cli-0.2.4.tgz`。
+- 简单 form-data body 字段已生成独立 flags；数组/对象 body 使用 `--data`、stdin 或文件输入。
+- npm registry 暂不作为当前主路径；Agent 测试阶段使用 GitHub Release npm tarball：`npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz`。

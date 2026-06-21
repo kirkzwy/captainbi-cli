@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"sort"
 	"strconv"
@@ -15,15 +16,17 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kirkzwy/captainbi-cli/internal/approval"
 	"github.com/kirkzwy/captainbi-cli/internal/auth"
 	"github.com/kirkzwy/captainbi-cli/internal/client"
 	"github.com/kirkzwy/captainbi-cli/internal/core"
+	internalerrs "github.com/kirkzwy/captainbi-cli/internal/errs"
 	outfmt "github.com/kirkzwy/captainbi-cli/internal/output"
 	"github.com/kirkzwy/captainbi-cli/internal/registry"
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
 
-var version = "0.2.4-dev"
+var version = "0.3.0-dev"
 
 type globalOptions struct {
 	format        string
@@ -41,13 +44,16 @@ type globalOptions struct {
 }
 
 type requestOptions struct {
-	dryRun     bool
-	jq         string
-	pageAll    bool
-	pageLimit  int
-	pageDelay  time.Duration
-	maxRecords int
-	resumePage int
+	dryRun      bool
+	jq          string
+	pageAll     bool
+	pageLimit   int
+	pageDelay   time.Duration
+	maxRecords  int
+	resumePage  int
+	confirm     bool
+	yes         bool
+	confirmHash string
 }
 
 var globals globalOptions
@@ -320,8 +326,8 @@ func newAuthCmd() *cobra.Command {
 }
 
 func newAPICmd() *cobra.Command {
-	var params, data, paramsFile, dataFile, jq string
-	var dryRun, pageAll, paramsStdin, dataStdin bool
+	var params, data, paramsFile, dataFile, jq, contentType, confirmHash string
+	var dryRun, pageAll, paramsStdin, dataStdin, confirm, yes, unsafeRawWrite bool
 	var pageLimit, pageDelay, maxRecords, resumePage int
 	cmd := &cobra.Command{
 		Use:   "api <METHOD> <PATH>",
@@ -332,8 +338,38 @@ func newAPICmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			req := client.Request{Method: strings.ToUpper(args[0]), Path: args[1], Query: query, Body: body}
-			return runRequest(cmd, registry.Method{HTTPMethod: req.Method, FullPath: req.Path, RiskLevel: "read", Pagination: registry.Pagination{Type: "none"}}, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
+			methodName := strings.ToUpper(args[0])
+			reg, regErr := registry.Load()
+			m, known := registry.Method{}, false
+			if regErr == nil {
+				m, known = reg.Find(args[1])
+				known = known && m.HTTPMethod == methodName
+			}
+			if !known {
+				risk := "read"
+				if methodName != http.MethodGet && methodName != http.MethodHead {
+					risk = "write_dangerous"
+					if !unsafeRawWrite && !dryRun {
+						return typedH("confirmation_required", "unknown raw write requires --unsafe-raw-write and a dry-run preview", "inspect the endpoint contract, rerun with --dry-run, then explicitly allow the raw write")
+					}
+				}
+				m = registry.Method{HTTPMethod: methodName, FullPath: args[1], CommandName: "raw-api", RiskLevel: risk, Pagination: registry.Pagination{Type: "none"}}
+			}
+			if contentType != "" {
+				m.ContentType = contentType
+			}
+			if known && m.RequestBodySchema != nil {
+				if m.RequestBodyRequired && body == nil {
+					return typedH("business", "request body is required", "run cbi schema for the endpoint and provide --data")
+				}
+				if body != nil {
+					if err := validateRequestBody(m.RequestBodySchema, body); err != nil {
+						return err
+					}
+				}
+			}
+			req := client.Request{Method: methodName, Path: args[1], Query: query, Body: body, ContentType: m.ContentType}
+			return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage, confirm: confirm, yes: yes, confirmHash: confirmHash})
 		},
 	}
 	cmd.Flags().StringVar(&params, "params", "", "query parameters JSON; supports - for stdin")
@@ -343,6 +379,11 @@ func newAPICmd() *cobra.Command {
 	cmd.Flags().StringVar(&paramsFile, "params-file", "", "read query parameter JSON from file")
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read request body JSON from file")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print request without sending it")
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "confirm a dangerous raw write")
+	cmd.Flags().StringVar(&confirmHash, "confirm-request", "", "confirm the exact request hash produced by --dry-run")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the prompt for a known write_safe endpoint")
+	cmd.Flags().BoolVar(&unsafeRawWrite, "unsafe-raw-write", false, "allow an unknown non-GET raw API write after preview")
+	cmd.Flags().StringVar(&contentType, "content-type", "", "request content type override for unknown raw APIs")
 	cmd.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
 	cmd.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
 	cmd.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
@@ -391,8 +432,19 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			}
 			dir, _ := core.ConfigDir()
 			rateStatus, _ := client.RateLimitStatus(cfg)
+			configWritable := true
+			configWriteError := ""
+			if err := core.CheckConfigDirWritable(); err != nil {
+				configWritable = false
+				configWriteError = security.RedactString(err.Error())
+			}
 			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
 				"config_loads":              true,
+				"config_dir":                dir,
+				"config_dir_overridden":     os.Getenv(core.EnvConfigDir) != "",
+				"config_dir_writable":       configWritable,
+				"config_dir_error":          configWriteError,
+				"config_dir_recommendation": "grant write access to the directory or set CAPTAINBI_CONFIG_DIR to a private writable path",
 				"client_configured":         cfg.ClientID != "",
 				"has_access_token":          cfg.AccessToken != "",
 				"keyring_available":         core.KeyringAvailable(),
@@ -455,7 +507,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 		svcCmd := &cobra.Command{Use: service.Domain, Short: service.DisplayName}
 		for _, method := range service.Methods {
 			m := method
-			var params, data, paramsFile, dataFile, jq string
+			var params, data, paramsFile, dataFile, jq, confirmHash string
 			var dryRun, confirm, yes, pageAll, paramsStdin, dataStdin bool
 			var pageLimit, pageDelay, maxRecords, resumePage int
 			endpointCmd := &cobra.Command{
@@ -466,11 +518,8 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 					if err != nil {
 						return err
 					}
-					if err := enforceRisk(cmd, m, confirm, yes, dryRun); err != nil {
-						return err
-					}
-					req := client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query, Body: body}
-					return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
+					req := client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query, Body: body, ContentType: m.ContentType}
+					return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage, confirm: confirm, yes: yes, confirmHash: confirmHash})
 				},
 			}
 			for _, p := range m.Params {
@@ -490,6 +539,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 			endpointCmd.Flags().StringVar(&dataFile, "data-file", "", "read request body JSON from file")
 			endpointCmd.Flags().BoolVar(&dryRun, "dry-run", false, "print request without sending it")
 			endpointCmd.Flags().BoolVar(&confirm, "confirm", false, "confirm dangerous or sync-triggering write")
+			endpointCmd.Flags().StringVar(&confirmHash, "confirm-request", "", "confirm the exact request hash produced by --dry-run")
 			endpointCmd.Flags().BoolVar(&yes, "yes", false, "skip prompt for write_safe commands")
 			endpointCmd.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
 			endpointCmd.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
@@ -522,27 +572,44 @@ func registerShortcuts(root *cobra.Command) {
 				if !ok {
 					return fmt.Errorf("shortcut target %s not found", domainRef)
 				}
-				query := map[string]string{}
+				req := client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: map[string]string{}, ContentType: m.ContentType}
+				if m.RequestBodySchema != nil && m.HTTPMethod != http.MethodGet && m.HTTPMethod != http.MethodHead {
+					req.Body = map[string]any{}
+				}
 				for _, p := range m.Params {
-					if p.Location == "query" {
-						if p.Name == "page" {
-							query[p.Name] = "1"
-						} else if p.Name == "rows" {
-							query[p.Name] = "100"
-						}
+					if p.Name == "page" {
+						setRequestParam(&req, m, p.Name, 1)
+					} else if p.Name == "rows" {
+						setRequestParam(&req, m, p.Name, 100)
 					}
 				}
 				for name, ptr := range values {
 					if ptr != nil && *ptr != "" {
-						query[name] = *ptr
+						value := any(*ptr)
+						for _, p := range m.Params {
+							if p.Name == name {
+								converted, err := convertParamValue(p, *ptr)
+								if err != nil {
+									return err
+								}
+								value = converted
+								break
+							}
+						}
+						setRequestParam(&req, m, name, value)
 					}
 				}
 				for _, p := range m.Params {
-					if p.Location == "query" && p.Required && query[p.Name] == "" {
+					if (p.Location == "query" || p.Location == "form") && p.Required && requestParam(req, m, p.Name) == "" {
 						return typedH("business", "required shortcut flag is missing for "+p.Name, "pass the required shortcut flag shown in --help")
 					}
 				}
-				return runRequest(cmd, m, client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query}, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
+				if m.RequestBodySchema != nil {
+					if err := validateRequestBody(m.RequestBodySchema, requestValidationBody(req, m)); err != nil {
+						return err
+					}
+				}
+				return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
 			},
 		}
 		c.Flags().BoolVar(&dryRun, "dry-run", false, "print request without sending it")
@@ -586,7 +653,11 @@ func registerShortcuts(root *cobra.Command) {
 		cmd.Flags().StringVar(&end, "modified-until", "", "end modified timestamp")
 	}))
 	root.AddCommand(shortcut("+ads-campaigns", "List advertising campaigns", "ads.advertise-campaign", "  cbi --channel main +ads-campaigns --summary --machine\n  cbi --channel all +ads-campaigns --summary --machine", nil))
-	root.AddCommand(shortcut("+ads-campaign-report", "Get advertising campaign report", "ads.advertise-campaign-report", "  cbi --channel main +ads-campaign-report --summary --machine\n  cbi --channel main +ads-campaign-report --output-file ads-campaigns.json --machine", nil))
+	root.AddCommand(shortcut("+ads-campaign-report", "Get advertising campaign report", "ads.advertise-campaign-report", "  cbi --channel main +ads-campaign-report --date 20260615 --summary --machine\n  cbi --channel main +ads-campaign-report --date 20260615 --output-file ads-campaigns.json --machine", func(cmd *cobra.Command, values map[string]*string) {
+		date := ""
+		values["report_date"] = &date
+		cmd.Flags().StringVar(&date, "date", "", "report date in YYYYMMDD format")
+	}))
 	root.AddCommand(shortcut("+reviews", "List product reviews", "monitor.reviews", "  cbi --channel main +reviews --summary --machine\n  cbi --channel main +reviews --page-all --max-records 500 --machine", func(cmd *cobra.Command, values map[string]*string) {
 		start, end := "", ""
 		values["start_modified_time"] = &start
@@ -612,31 +683,83 @@ func collectEndpointInput(cmd *cobra.Command, m registry.Method, extraParams, da
 	if err != nil {
 		return nil, nil, err
 	}
+	bodyMap := map[string]any{}
+	if body != nil {
+		var ok bool
+		bodyMap, ok = body.(map[string]any)
+		if !ok {
+			return nil, nil, typedH("business", "request body must be a JSON object", "pass an object with --data, --data-stdin, or --data-file")
+		}
+	}
+	hasExplicitBody := data != "" || dataFile != "" || dataStdin
 	for _, p := range m.Params {
-		if p.Location != "query" {
+		if p.Location != "query" && p.Location != "form" {
 			continue
 		}
 		v, _ := cmd.Flags().GetString(p.Flag)
-		if v == "" {
+		changed := cmd.Flags().Changed(p.Flag)
+		if v == "" && !changed {
 			v = defaultString(p.Default)
 		}
-		if p.Required && v == "" {
+		if p.Required && v == "" && bodyMap[p.Name] == nil {
 			return nil, nil, typedH("business", fmt.Sprintf("required flag --%s is missing", p.Flag), "run the command with --help and pass all required flags")
 		}
-		if p.Max > 0 && v != "" {
-			n, err := strconv.Atoi(v)
-			if err != nil {
-				return nil, nil, typedH("business", fmt.Sprintf("flag --%s must be an integer", p.Flag), "pass a numeric value for this flag")
-			}
-			if n > p.Max {
-				return nil, nil, typedH("business", fmt.Sprintf("flag --%s must be <= %d", p.Flag, p.Max), fmt.Sprintf("use --%s %d or a smaller value", p.Flag, p.Max))
-			}
+		if err := validateParamValue(p, v); err != nil {
+			return nil, nil, err
 		}
-		if v != "" {
+		if p.Location == "query" && v != "" {
 			query[p.Name] = v
 		}
+		if p.Location == "form" && v != "" {
+			if hasExplicitBody && changed {
+				return nil, nil, typedH("business", fmt.Sprintf("cannot combine --data input with body flag --%s", p.Flag), "use either generated body flags or one --data source")
+			}
+			if bodyMap[p.Name] == nil || changed {
+				converted, err := convertParamValue(p, v)
+				if err != nil {
+					return nil, nil, err
+				}
+				bodyMap[p.Name] = converted
+			}
+		}
+	}
+	if m.RequestBodySchema != nil {
+		validationBody := requestValidationBody(client.Request{Method: m.HTTPMethod, Query: query, Body: bodyMap}, m)
+		if err := validateRequestBody(m.RequestBodySchema, validationBody); err != nil {
+			return nil, nil, err
+		}
+		if m.FullPath == "/v1/open_fba/sync_shipment" {
+			ids := strings.Split(strings.TrimSpace(fmt.Sprint(bodyMap["shipment_ids"])), ",")
+			if len(ids) > 5000 {
+				return nil, nil, typedH("business", "shipment_ids supports at most 5000 IDs", "split the synchronization into batches of at most 5000 shipment IDs")
+			}
+		}
+		if m.RequestBodyRequired && len(bodyMap) == 0 {
+			return nil, nil, typedH("business", "request body is required", "run cbi schema for the endpoint and provide the documented body fields")
+		}
+		if m.HTTPMethod == http.MethodGet || m.HTTPMethod == http.MethodHead {
+			return query, nil, nil
+		}
+		return query, bodyMap, nil
 	}
 	return query, body, nil
+}
+
+func requestValidationBody(req client.Request, m registry.Method) map[string]any {
+	body, _ := req.Body.(map[string]any)
+	if m.HTTPMethod != http.MethodGet && m.HTTPMethod != http.MethodHead {
+		return body
+	}
+	validation := map[string]any{}
+	for _, p := range m.Params {
+		if value := req.Query[p.Name]; value != "" {
+			converted, err := convertParamValue(p, value)
+			if err == nil {
+				validation[p.Name] = converted
+			}
+		}
+	}
+	return validation
 }
 
 func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts requestOptions) error {
@@ -648,15 +771,34 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 	if err != nil {
 		return err
 	}
+	if m.RiskLevel != "read" && (globals.channel == "all" || len(targets) > 1) {
+		return typedH("confirmation_required", "write operations do not support --channel all or multi-channel files", "write to one configured channel alias at a time and approve each payload separately")
+	}
 	if opts.dryRun {
 		views := []map[string]any{}
 		for _, target := range targets {
-			views = append(views, dryRunView(req, target.ID, target.Alias))
+			view := dryRunView(req, m, target.ID, target.Alias)
+			if m.RiskLevel != "read" {
+				record, err := approval.Issue(approvalPayload(req, m, target.ID))
+				if err != nil {
+					return typedH("business", "could not store write preview approval: "+err.Error(), "make CAPTAINBI_CONFIG_DIR writable, then rerun --dry-run")
+				}
+				view["approval"] = map[string]any{
+					"required":     true,
+					"request_hash": record.RequestHash,
+					"expires_at":   record.ExpiresAt.Format(time.RFC3339),
+					"confirm_flag": "--confirm-request",
+				}
+			}
+			views = append(views, view)
 		}
 		if len(views) == 1 {
 			return writeValue(cmd, views[0], nil, opts.jq)
 		}
 		return writeValue(cmd, views, nil, opts.jq)
+	}
+	if err := enforceRisk(cmd, m, req, targets[0], opts); err != nil {
+		return err
 	}
 	c := client.New(cfg, func(ctx context.Context, force bool) (string, error) { return auth.GetToken(ctx, cfg, force) })
 	if len(targets) > 1 {
@@ -665,13 +807,13 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 			req.OpenChannelID = target.ID
 			resp, err := executeRequest(cmd.Context(), c, m, req, opts)
 			results = append(results, channelResult(target, resp, err))
-			writeAudit(m, target, err)
+			writeAudit(m, target, err, opts.confirmHash)
 		}
 		return writeValue(cmd, map[string]any{"ok": true, "channels": results}, nil, opts.jq)
 	}
 	req.OpenChannelID = targets[0].ID
 	resp, err := executeRequest(cmd.Context(), c, m, req, opts)
-	writeAudit(m, targets[0], err)
+	writeAudit(m, targets[0], err, opts.confirmHash)
 	if err != nil {
 		return err
 	}
@@ -684,14 +826,17 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 	return writeValue(cmd, resp, m.TableColumns, opts.jq)
 }
 
-func dryRunView(req client.Request, openChannelID, alias string) map[string]any {
+func dryRunView(req client.Request, m registry.Method, openChannelID, alias string) map[string]any {
 	return map[string]any{
-		"method":  req.Method,
-		"path":    req.Path,
-		"query":   req.Query,
-		"body":    req.Body,
-		"channel": alias,
-		"headers": map[string]any{"authorization": security.RedactValue("bearer token"), "OpenChannelId": security.RedactValue(openChannelID)},
+		"dry_run":      true,
+		"method":       req.Method,
+		"path":         req.Path,
+		"query":        req.Query,
+		"body":         req.Body,
+		"content_type": req.ContentType,
+		"risk_level":   m.RiskLevel,
+		"channel":      alias,
+		"headers":      map[string]any{"authorization": security.RedactValue("bearer token"), "OpenChannelId": security.RedactValue(openChannelID)},
 	}
 }
 
@@ -702,10 +847,12 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	if req.Query == nil {
 		req.Query = map[string]string{}
 	}
-	if req.Query["rows"] == "" {
-		req.Query["rows"] = "100"
+	rowsText := requestParam(req, m, "rows")
+	if rowsText == "" {
+		rowsText = "100"
+		setRequestParam(&req, m, "rows", 100)
 	}
-	rows, _ := strconv.Atoi(req.Query["rows"])
+	rows, _ := strconv.Atoi(rowsText)
 	if rows <= 0 {
 		rows = 100
 	}
@@ -735,7 +882,7 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 			nextPage = page
 			break
 		}
-		req.Query["page"] = strconv.Itoa(page)
+		setRequestParam(&req, m, "page", page)
 		resp, err := c.Do(ctx, req)
 		if err != nil {
 			pagesFailed++
@@ -806,6 +953,214 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	return envelope, nil
 }
 
+func setRequestParam(req *client.Request, m registry.Method, name string, value any) {
+	for _, p := range m.Params {
+		if p.Name != name {
+			continue
+		}
+		if p.Location == "form" {
+			body, _ := req.Body.(map[string]any)
+			if body == nil {
+				body = map[string]any{}
+				req.Body = body
+			}
+			body[name] = value
+			return
+		}
+		break
+	}
+	if req.Query == nil {
+		req.Query = map[string]string{}
+	}
+	req.Query[name] = fmt.Sprint(value)
+}
+
+func requestParam(req client.Request, m registry.Method, name string) string {
+	for _, p := range m.Params {
+		if p.Name == name && p.Location == "form" {
+			body, _ := req.Body.(map[string]any)
+			if body == nil || body[name] == nil {
+				return ""
+			}
+			return fmt.Sprint(body[name])
+		}
+	}
+	return req.Query[name]
+}
+
+func validateParamValue(p registry.Param, value string) error {
+	if value == "" {
+		return nil
+	}
+	if p.Format == "int" || p.Format == "unix_seconds" || p.Type == "integer" {
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return typedH("business", fmt.Sprintf("flag --%s must be an integer", p.Flag), "pass a numeric value for this flag")
+		}
+		if p.Min > 0 && n < p.Min {
+			return typedH("business", fmt.Sprintf("flag --%s must be >= %d", p.Flag, p.Min), fmt.Sprintf("use --%s %d or a larger value", p.Flag, p.Min))
+		}
+		if p.Max > 0 && n > p.Max {
+			return typedH("business", fmt.Sprintf("flag --%s must be <= %d", p.Flag, p.Max), fmt.Sprintf("use --%s %d or a smaller value", p.Flag, p.Max))
+		}
+	}
+	if p.Format == "number" {
+		if _, err := strconv.ParseFloat(value, 64); err != nil {
+			return typedH("business", fmt.Sprintf("flag --%s must be a number", p.Flag), "pass a numeric value for this flag")
+		}
+	}
+	if p.Format == "boolean" {
+		if _, err := strconv.ParseBool(value); err != nil {
+			return typedH("business", fmt.Sprintf("flag --%s must be true or false", p.Flag), "pass true or false for this flag")
+		}
+	}
+	if p.Format == "date" && !validDateValue(value) {
+		return typedH("business", fmt.Sprintf("flag --%s must be YYYYMM, YYYYMMDD, or YYYY-MM-DD", p.Flag), "pass the date format shown in cbi schema")
+	}
+	if len(p.Enum) > 0 {
+		matched := false
+		for _, allowed := range p.Enum {
+			if fmt.Sprint(allowed) == value {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return typedH("business", fmt.Sprintf("flag --%s must be one of %v", p.Flag, p.Enum), "choose a documented enum value from cbi schema")
+		}
+	}
+	return nil
+}
+
+func convertParamValue(p registry.Param, value string) (any, error) {
+	if err := validateParamValue(p, value); err != nil {
+		return nil, err
+	}
+	switch p.Type {
+	case "integer":
+		return strconv.Atoi(value)
+	case "number":
+		return strconv.ParseFloat(value, 64)
+	case "boolean":
+		return strconv.ParseBool(value)
+	default:
+		return value, nil
+	}
+}
+
+func validDateValue(value string) bool {
+	if len(value) == 6 || len(value) == 8 {
+		_, err := strconv.Atoi(value)
+		return err == nil
+	}
+	if len(value) == 10 {
+		_, err := time.Parse("2006-01-02", value)
+		return err == nil
+	}
+	return false
+}
+
+func validateRequestBody(schemaValue, bodyValue any) error {
+	schema, ok := schemaValue.(map[string]any)
+	if !ok || len(schema) == 0 {
+		return nil
+	}
+	return validateSchemaValue("body", schema, bodyValue)
+}
+
+func validateSchemaValue(path string, schema map[string]any, value any) error {
+	if value == nil {
+		return nil
+	}
+	typ := fmt.Sprint(schema["type"])
+	switch typ {
+	case "object":
+		object, ok := value.(map[string]any)
+		if !ok {
+			return typedH("business", path+" must be an object", "inspect the request schema with cbi schema")
+		}
+		for _, required := range anyStrings(schema["required"]) {
+			if object[required] == nil || fmt.Sprint(object[required]) == "" {
+				return typedH("business", path+"."+required+" is required", "provide every required request body field shown by cbi schema")
+			}
+		}
+		properties, _ := schema["properties"].(map[string]any)
+		for name, item := range object {
+			child, _ := properties[name].(map[string]any)
+			if len(child) > 0 {
+				if err := validateSchemaValue(path+"."+name, child, item); err != nil {
+					return err
+				}
+			}
+		}
+	case "array":
+		array, ok := value.([]any)
+		if !ok {
+			return typedH("business", path+" must be an array", "inspect the request schema with cbi schema")
+		}
+		if minItems := intFrom(schema["minItems"]); minItems > 0 && len(array) < minItems {
+			return typedH("business", fmt.Sprintf("%s must contain at least %d item(s)", path, minItems), "provide at least one complete item according to cbi schema")
+		}
+		items, _ := schema["items"].(map[string]any)
+		for index, item := range array {
+			if err := validateSchemaValue(fmt.Sprintf("%s[%d]", path, index), items, item); err != nil {
+				return err
+			}
+		}
+	case "integer":
+		switch number := value.(type) {
+		case float64:
+			if number != float64(int64(number)) {
+				return typedH("business", path+" must be an integer", "fix the request body type according to cbi schema")
+			}
+		case int, int64:
+		default:
+			return typedH("business", path+" must be an integer", "fix the request body type according to cbi schema")
+		}
+	case "number":
+		switch value.(type) {
+		case float64, int:
+		default:
+			return typedH("business", path+" must be a number", "fix the request body type according to cbi schema")
+		}
+	case "string":
+		if _, ok := value.(string); !ok {
+			return typedH("business", path+" must be a string", "fix the request body type according to cbi schema")
+		}
+	case "boolean":
+		if _, ok := value.(bool); !ok {
+			return typedH("business", path+" must be a boolean", "fix the request body type according to cbi schema")
+		}
+	}
+	if values, ok := schema["enum"].([]any); ok && len(values) > 0 {
+		matched := false
+		for _, allowed := range values {
+			if fmt.Sprint(allowed) == fmt.Sprint(value) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return typedH("business", path+" has an unsupported value", "choose an enum value shown by cbi schema")
+		}
+	}
+	return nil
+}
+
+func anyStrings(value any) []string {
+	values, _ := value.([]any)
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if text, ok := value.(string); ok {
+			out = append(out, text)
+		}
+	}
+	if stringsValue, ok := value.([]string); ok {
+		return stringsValue
+	}
+	return out
+}
+
 func intFrom(v any) int {
 	switch x := v.(type) {
 	case int:
@@ -820,12 +1175,24 @@ func intFrom(v any) int {
 	}
 }
 
-func enforceRisk(cmd *cobra.Command, m registry.Method, confirm, yes, dryRun bool) error {
-	if dryRun || m.RiskLevel == "read" {
+func enforceRisk(cmd *cobra.Command, m registry.Method, req client.Request, target channelTarget, opts requestOptions) error {
+	if opts.dryRun || m.RiskLevel == "read" {
 		return nil
 	}
+	if opts.confirmHash != "" {
+		if err := approval.Verify(approvalPayload(req, m, target.ID), opts.confirmHash); err != nil {
+			return typedH("confirmation_required", err.Error(), "rerun --dry-run, ask the user to approve the exact preview, then pass its current --confirm-request hash")
+		}
+		if err := approval.Consume(opts.confirmHash); err != nil {
+			return typedH("confirmation_required", "confirm-request could not be consumed: "+err.Error(), "rerun --dry-run and do not send the write until the approval record can be consumed")
+		}
+		return nil
+	}
+	if agentMode() {
+		return typedH("confirmation_required", "Agent writes require --confirm-request from a current dry-run preview", "run --dry-run, show the preview to the user, then use the approved request hash without changing the payload")
+	}
 	if m.RiskLevel == "write_safe" {
-		if yes || agentMode() {
+		if opts.yes {
 			return nil
 		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s is a write operation; continue? [y/N] ", m.CommandName)
@@ -835,13 +1202,26 @@ func enforceRisk(cmd *cobra.Command, m registry.Method, confirm, yes, dryRun boo
 		}
 		return nil
 	}
-	if !confirm {
+	if !opts.confirm {
 		return typedH("confirmation_required", "this operation requires --confirm; use --dry-run to preview", "add --confirm only after the user explicitly approves this write or sync operation")
 	}
 	if m.RiskLevel == "sync_trigger" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "warning: this operation may trigger external CaptainBI/Amazon synchronization")
 	}
 	return nil
+}
+
+func approvalPayload(req client.Request, m registry.Method, channelID string) approval.Payload {
+	return approval.Payload{
+		Method:          req.Method,
+		Path:            req.Path,
+		Query:           req.Query,
+		Body:            req.Body,
+		ContentType:     req.ContentType,
+		ChannelID:       channelID,
+		RiskLevel:       m.RiskLevel,
+		RegistryVersion: "0.3.0",
+	}
 }
 
 type inputOptions struct {
@@ -873,7 +1253,9 @@ func parseMaps(opts inputOptions, stdin io.Reader) (map[string]string, any, erro
 			return nil, nil, err
 		}
 		var m map[string]any
-		if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		decoder := json.NewDecoder(strings.NewReader(raw))
+		decoder.UseNumber()
+		if err := decoder.Decode(&m); err != nil {
 			return nil, nil, err
 		}
 		for k, v := range m {
@@ -928,16 +1310,13 @@ func errString(err error) string {
 	return err.Error()
 }
 
-type typedErr struct {
-	kind string
-	msg  string
-	hint string
+func typed(kind, msg string) error {
+	return internalerrs.New(kind, "", msg, hintFor(kind, msg))
 }
 
-func typed(kind, msg string) error        { return &typedErr{kind: kind, msg: msg, hint: hintFor(kind, msg)} }
-func typedH(kind, msg, hint string) error { return &typedErr{kind: kind, msg: msg, hint: hint} }
-func (e *typedErr) Error() string         { return e.msg }
-func (e *typedErr) Hint() string          { return e.hint }
+func typedH(kind, msg, hint string) error {
+	return internalerrs.New(kind, "", msg, hint)
+}
 func hintFor(kind, msg string) string {
 	switch kind {
 	case "auth":
@@ -955,9 +1334,9 @@ func hintFor(kind, msg string) string {
 }
 
 func exitCode(err error) int {
-	var te *typedErr
+	var te *internalerrs.Error
 	if errors.As(err, &te) {
-		switch te.kind {
+		switch te.Kind() {
 		case "auth":
 			return 2
 		case "network":
@@ -985,6 +1364,9 @@ func exitCode(err error) int {
 	}
 	var se *client.StatusError
 	if errors.As(err, &se) {
+		if errorSubtype(err) == internalerrs.ChannelInvalid {
+			return 1
+		}
 		if se.StatusCode == 429 {
 			return 4
 		}
@@ -1001,9 +1383,9 @@ func exitCode(err error) int {
 func writeError(w io.Writer, err error, code int) {
 	if agentMode() {
 		kind := "business"
-		var te *typedErr
+		var te *internalerrs.Error
 		if errors.As(err, &te) {
-			kind = te.kind
+			kind = te.Kind()
 		}
 		var ce *client.Error
 		if errors.As(err, &ce) {
@@ -1011,7 +1393,10 @@ func writeError(w io.Writer, err error, code int) {
 		}
 		var se *client.StatusError
 		if errors.As(err, &se) {
-			if se.StatusCode == 429 {
+			subtype := errorSubtype(err)
+			if subtype == internalerrs.ChannelInvalid {
+				kind = "business"
+			} else if se.StatusCode == 429 {
 				kind = "rate_limit"
 			} else if se.StatusCode == 401 || se.StatusCode == 403 {
 				kind = "auth"

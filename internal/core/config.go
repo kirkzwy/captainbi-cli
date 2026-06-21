@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/zalando/go-keyring"
+
+	"github.com/kirkzwy/captainbi-cli/internal/lockfile"
 )
 
 const (
@@ -22,6 +25,7 @@ const (
 	EnvBaseURL       = "CAPTAINBI_BASE_URL"
 	EnvOpenChannelID = "CAPTAINBI_OPEN_CHANNEL_ID"
 	EnvRateLimit     = "CAPTAINBI_RATE_LIMIT"
+	EnvConfigDir     = "CAPTAINBI_CONFIG_DIR"
 )
 
 type Config struct {
@@ -39,6 +43,12 @@ type Config struct {
 }
 
 func ConfigDir() (string, error) {
+	if configured := os.Getenv(EnvConfigDir); configured != "" {
+		if filepath.IsAbs(configured) {
+			return filepath.Clean(configured), nil
+		}
+		return filepath.Abs(configured)
+	}
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, AppName), nil
 	}
@@ -55,6 +65,26 @@ func ConfigPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, "config.json"), nil
+}
+
+func CheckConfigDirWritable() error {
+	dir, err := ConfigDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, ".write-check-*")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return err
+	}
+	return os.Remove(name)
 }
 
 func LoadConfig() (*Config, error) {
@@ -91,11 +121,39 @@ func SaveConfig(cfg *Config) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	release, err := lockfile.Acquire(ctx, filepath.Join(filepath.Dir(path), "config.lock"))
+	if err != nil {
+		return err
+	}
+	defer release()
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o600)
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".config-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(b); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
 }
 
 func ApplyEnv(cfg *Config) {

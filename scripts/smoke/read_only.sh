@@ -49,6 +49,6 @@ run +shops
 run --open-channel-id "$CHANNEL" goods list --page 1 --rows 20 --start-modified-time "$START_TS" --end-modified-time "$END_TS"
 run --open-channel-id "$CHANNEL" sales orders --page 1 --rows 20 --start-modified-time "$START_TS" --end-modified-time "$END_TS"
 run --open-channel-id "$CHANNEL" finance store-daily --page 1 --rows 20 --report-date "$REPORT_DATE"
-run --open-channel-id "$CHANNEL" ads advertise-campaign-report
+run --open-channel-id "$CHANNEL" ads advertise-campaign-report --report-date "$REPORT_DATE"
 run --open-channel-id "$CHANNEL" fba inventory --page 1 --rows 20 --start-modified-time "$START_TS" --end-modified-time "$END_TS"
 run --open-channel-id "$CHANNEL" monitor reviews --page 1 --rows 20

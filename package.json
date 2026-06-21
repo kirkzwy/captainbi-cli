@@ -1,6 +1,6 @@
 {
   "name": "captainbi-cli",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "CaptainBI OpenAPI command-line client",
   "repository": {
     "type": "git",

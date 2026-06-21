@@ -15,6 +15,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/auth"
 	"github.com/kirkzwy/captainbi-cli/internal/client"
 	"github.com/kirkzwy/captainbi-cli/internal/core"
+	internalerrs "github.com/kirkzwy/captainbi-cli/internal/errs"
 	outfmt "github.com/kirkzwy/captainbi-cli/internal/output"
 	"github.com/kirkzwy/captainbi-cli/internal/registry"
 	"github.com/kirkzwy/captainbi-cli/internal/security"
@@ -57,7 +58,7 @@ func resolveChannels(cfg *core.Config, direct string, required bool) ([]channelT
 		if id, ok := cfg.Channels[globals.channel]; ok {
 			return []channelTarget{{Alias: globals.channel, ID: id}}, nil
 		}
-		return []channelTarget{{Alias: "direct", ID: globals.channel}}, nil
+		return nil, typedH("business", fmt.Sprintf("channel alias %q was not found", globals.channel), "run cbi config channels list or cbi +shops, then use a configured alias; use --open-channel-id for a raw ID")
 	}
 	if cfg.OpenChannelID != "" {
 		return []channelTarget{{Alias: "default", ID: cfg.OpenChannelID}}, nil
@@ -148,7 +149,7 @@ func channelResult(target channelTarget, resp map[string]any, err error) map[str
 	return out
 }
 
-func writeAudit(m registry.Method, target channelTarget, callErr error) {
+func writeAudit(m registry.Method, target channelTarget, callErr error, requestHash string) {
 	if globals.auditLog == "" {
 		return
 	}
@@ -165,9 +166,16 @@ func writeAudit(m registry.Method, target channelTarget, callErr error) {
 		"command":         m.CommandName,
 		"path":            m.FullPath,
 		"method":          m.HTTPMethod,
+		"risk_level":      m.RiskLevel,
 		"channel":         target.Alias,
 		"open_channel_id": security.RedactValue(target.ID),
 		"exit_code":       0,
+	}
+	if requestHash != "" {
+		row["request_hash"] = requestHash
+	}
+	if agent := os.Getenv("CBI_AGENT_NAME"); agent != "" {
+		row["agent"] = agent
 	}
 	if callErr != nil {
 		row["exit_code"] = exitCode(callErr)
@@ -383,42 +391,60 @@ func errorCode(err error) string {
 }
 
 func errorSubtype(err error) string {
-	var te *typedErr
+	var te *internalerrs.Error
 	if errors.As(err, &te) {
-		msg := strings.ToLower(te.msg)
-		switch te.kind {
+		if te.Subtype() != "" {
+			return te.Subtype()
+		}
+		msg := strings.ToLower(te.Error())
+		switch te.Kind() {
 		case "auth":
 			if strings.Contains(msg, "client_secret") || strings.Contains(msg, "client_id") || strings.Contains(msg, "credential") {
-				return "AUTH_MISSING_CREDENTIALS"
+				return internalerrs.AuthMissingCredentials
 			}
-			return "AUTH_TOKEN_REFRESH_FAILED"
+			return internalerrs.AuthTokenRefreshFailed
 		case "confirmation_required":
-			return "CONFIRMATION_REQUIRED"
+			if strings.Contains(msg, "does not match") {
+				return internalerrs.WriteConfirmationMismatch
+			}
+			if strings.Contains(msg, "expired") {
+				return internalerrs.WriteConfirmationExpired
+			}
+			if strings.Contains(msg, "already used") || strings.Contains(msg, "was not found") {
+				return internalerrs.WriteConfirmationReplay
+			}
+			if strings.Contains(msg, "multi-channel") || strings.Contains(msg, "channel all") {
+				return internalerrs.WriteMultiChannelForbidden
+			}
+			return internalerrs.ConfirmationRequired
 		case "rate_limit":
-			return "RATE_LIMIT_EXCEEDED"
+			return internalerrs.RateLimitExceeded
 		case "network":
-			return "NETWORK_FAILED"
+			return internalerrs.NetworkFailed
 		case "business":
 			if strings.Contains(msg, "openchannelid") || strings.Contains(msg, "channel aliases") {
-				return "CHANNEL_MISSING"
+				return internalerrs.ChannelMissing
+			}
+			if strings.Contains(msg, "channel alias") && strings.Contains(msg, "not found") {
+				return internalerrs.ChannelAliasNotFound
 			}
 			if strings.Contains(msg, "required") && (strings.Contains(msg, "flag") || strings.Contains(msg, "shortcut")) {
-				return "VALIDATION_REQUIRED_FLAG"
+				return internalerrs.ValidationRequiredFlag
 			}
 			if strings.Contains(msg, "must be") || strings.Contains(msg, "invalid") || strings.Contains(msg, "json") {
-				return "VALIDATION_BAD_PARAM"
+				return internalerrs.ValidationBadParam
 			}
-			return "API_BUSINESS_ERROR"
+			return internalerrs.APIBusinessError
 		default:
-			return strings.ToUpper(te.kind)
+			return strings.ToUpper(te.Kind())
 		}
 	}
 	var ae *auth.TokenError
 	if errors.As(err, &ae) {
 		if ae.ErrorCode == "invalid_client" {
-			return "AUTH_INVALID_CLIENT"
+			return internalerrs.AuthInvalidClient
 		}
-		return "AUTH_TOKEN_REFRESH_FAILED"
+		return internalerrs.AuthTokenRefreshFailed
 	}
 	var ce *client.Error
 	if errors.As(err, &ce) {
@@ -426,31 +452,35 @@ func errorSubtype(err error) string {
 		case "auth":
 			return errorSubtype(ce.Unwrap())
 		case "rate_limit":
-			return "RATE_LIMIT_EXCEEDED"
+			return internalerrs.RateLimitExceeded
 		case "network":
-			return "NETWORK_FAILED"
+			return internalerrs.NetworkFailed
 		case "business":
-			return "API_BUSINESS_ERROR"
+			return internalerrs.APIBusinessError
 		default:
 			return strings.ToUpper(ce.Kind)
 		}
 	}
+	var be *client.BusinessError
+	if errors.As(err, &be) {
+		return internalerrs.APIBusinessError
+	}
 	var se *client.StatusError
 	if errors.As(err, &se) {
 		if se.StatusCode == 429 {
-			return "RATE_LIMIT_EXCEEDED"
+			return internalerrs.RateLimitExceeded
 		}
 		if se.StatusCode >= 500 {
-			return "HTTP_5XX"
+			return internalerrs.HTTP5xx
 		}
 		apiCode, apiMsg := apiErrorFields(se)
 		msg := strings.ToLower(fmt.Sprint(apiCode) + " " + apiMsg)
 		if strings.Contains(msg, "open_channel_id") || strings.Contains(msg, "openchannelid") {
-			return "CHANNEL_INVALID"
+			return internalerrs.ChannelInvalid
 		}
-		return "API_BUSINESS_ERROR"
+		return internalerrs.APIBusinessError
 	}
-	return "API_BUSINESS_ERROR"
+	return internalerrs.APIBusinessError
 }
 
 func retryFields(err error) (bool, int64) {
@@ -477,6 +507,10 @@ func apiErrorFields(err error) (any, string) {
 	if errors.As(err, &se) {
 		return se.APICode(), se.APIMessage()
 	}
+	var be *client.BusinessError
+	if errors.As(err, &be) {
+		return be.APICode(), be.APIMessage()
+	}
 	var ce *client.Error
 	if errors.As(err, &ce) {
 		return apiErrorFields(ce.Unwrap())
@@ -485,7 +519,7 @@ func apiErrorFields(err error) (any, string) {
 }
 
 func hintForError(err error) string {
-	var te *typedErr
+	var te *internalerrs.Error
 	if errors.As(err, &te) {
 		if hint := te.Hint(); hint != "" {
 			return hint
@@ -516,6 +550,9 @@ func hintForError(err error) string {
 	}
 	var se *client.StatusError
 	if errors.As(err, &se) {
+		if errorSubtype(err) == "CHANNEL_INVALID" {
+			return hintForSubtype("CHANNEL_INVALID")
+		}
 		if se.StatusCode == 429 {
 			return "retry after retry_after_ms or reduce request frequency"
 		}
@@ -530,37 +567,18 @@ func hintForError(err error) string {
 }
 
 func hintForSubtype(subtype string) string {
-	switch subtype {
-	case "AUTH_MISSING_CREDENTIALS":
-		return "configure credentials with cbi config init --client-secret-stdin, --client-secret-from-env, --client-secret-file, or CAPTAINBI_ACCESS_TOKEN"
-	case "AUTH_INVALID_CLIENT":
-		return "verify CaptainBI APPID/client_secret and rerun cbi config init; token requests include scope=all automatically"
-	case "AUTH_TOKEN_REFRESH_FAILED":
-		return "run cbi auth status --machine, then refresh credentials with cbi auth token or cbi config init"
-	case "CHANNEL_MISSING":
-		return "run cbi +shops, then pass --channel <alias> or configure cbi config channels add <alias> <open_channel_id>"
-	case "CHANNEL_INVALID":
-		return "verify the channel alias or OpenChannelId with cbi +shops, then update cbi config channels"
-	case "VALIDATION_REQUIRED_FLAG":
-		return "run the command with --help and pass the required flag shown in Examples"
-	case "VALIDATION_BAD_PARAM":
-		return "fix the parameter value according to --help or cbi schema <domain.command>"
-	case "RATE_LIMIT_EXCEEDED":
-		return "wait retry_after_ms when present, reduce concurrency, or lower --rate-limit"
-	case "HTTP_5XX":
-		return "retry later; CaptainBI returned a server error"
-	case "NETWORK_FAILED":
-		return "retry later and check network or proxy settings"
-	case "CONFIRMATION_REQUIRED":
-		return "use --dry-run to preview, then add --confirm only after explicit user approval"
-	case "API_BUSINESS_ERROR":
-		return "read api_code/api_msg, fix the request parameters or channel, then retry"
-	default:
-		return ""
-	}
+	return internalerrs.Hint(subtype)
 }
 
 func requestID(err error) string {
+	var be *client.BusinessError
+	if errors.As(err, &be) && be.Body != nil {
+		for _, key := range []string{"request_id", "requestId", "trace_id", "traceId"} {
+			if v, ok := be.Body[key].(string); ok {
+				return v
+			}
+		}
+	}
 	var se *client.StatusError
 	if errors.As(err, &se) && se.Body != nil {
 		for _, key := range []string{"request_id", "requestId", "trace_id", "traceId"} {

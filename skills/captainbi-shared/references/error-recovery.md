@@ -13,8 +13,14 @@ Common recovery:
 - missing required flag: rerun with `--help`, then pass the required time/date/page parameter.
 - `confirmation_required`: do not proceed unless the user explicitly approves the write/sync operation.
 - `CHANNEL_MISSING`: run `cbi +shops`, then configure or pass `--channel <alias>`.
+- `CHANNEL_ALIAS_NOT_FOUND`: run `cbi config channels list`; use a configured alias. Raw IDs belong in `--open-channel-id`.
 - `CHANNEL_INVALID`: verify the alias/OpenChannelId with `cbi +shops`, then update channel config.
 - `VALIDATION_REQUIRED_FLAG`: use command `--help` examples and pass the missing flag.
 - `VALIDATION_BAD_PARAM`: inspect `cbi schema <domain.command>` and correct the value.
+- `API_BUSINESS_ERROR`: HTTP may still be 200. Read `api_code/api_msg`, correct the request and do not treat empty data as success.
+- `WRITE_CONFIRMATION_MISMATCH`: the request changed after preview; generate a new dry-run.
+- `WRITE_CONFIRMATION_EXPIRED`: the 15-minute preview expired; generate a new dry-run.
+- `WRITE_CONFIRMATION_REPLAY`: the hash was already consumed or is missing; inspect the previous call before retrying.
+- `WRITE_MULTI_CHANNEL_FORBIDDEN`: select one channel alias and approve each write separately.
 
 CaptainBI OAuth errors may use `error/error_description`; business APIs may use `code/msg`. The CLI maps both to `api_code/api_msg`.

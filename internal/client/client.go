@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/kirkzwy/captainbi-cli/internal/core"
+	"github.com/kirkzwy/captainbi-cli/internal/lockfile"
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
 
@@ -37,6 +40,7 @@ type Request struct {
 	Path          string
 	Query         map[string]string
 	Body          any
+	ContentType   string
 	OpenChannelID string
 }
 
@@ -82,13 +86,9 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		return nil, &Error{Kind: "rate_limit", Err: err, Retryable: true}
 	}
 	c.lastWait += waited
-	var bodyBytes []byte
-	if request.Body != nil {
-		b, err := json.Marshal(request.Body)
-		if err != nil {
-			return nil, &Error{Kind: "business", Err: err}
-		}
-		bodyBytes = b
+	bodyBytes, contentType, err := encodeBody(request.Body, request.ContentType)
+	if err != nil {
+		return nil, &Error{Kind: "business", Err: err}
 	}
 	u, err := url.Parse(strings.TrimRight(c.cfg.BaseURL, "/") + "/" + strings.TrimLeft(request.Path, "/"))
 	if err != nil {
@@ -121,7 +121,9 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 			return nil, &Error{Kind: "business", Err: err}
 		}
 		httpReq.Header.Set("authorization", "bearer "+token)
-		httpReq.Header.Set("content-type", "application/json")
+		if contentType != "" {
+			httpReq.Header.Set("content-type", contentType)
+		}
 		if request.OpenChannelID != "" {
 			httpReq.Header.Set("OpenChannelId", request.OpenChannelID)
 		}
@@ -140,6 +142,9 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		if err != nil {
 			return nil, &Error{Kind: "network", Err: err}
 		}
+		if !businessSuccess(result) {
+			return nil, &BusinessError{Body: result}
+		}
 		return result, nil
 	}
 	retryAfter := time.Duration(0)
@@ -147,6 +152,75 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		retryAfter = se.RetryAfter
 	}
 	return nil, &Error{Kind: "rate_limit", Err: lastErr, Retryable: true, RetryAfter: retryAfter}
+}
+
+func encodeBody(body any, requestedContentType string) ([]byte, string, error) {
+	if body == nil {
+		return nil, "", nil
+	}
+	if requestedContentType == "" || requestedContentType == "application/json" {
+		b, err := json.Marshal(body)
+		return b, "application/json", err
+	}
+	if requestedContentType != "multipart/form-data" && requestedContentType != "application/form-data" {
+		return nil, "", fmt.Errorf("unsupported request content type %q", requestedContentType)
+	}
+	fields, ok := body.(map[string]any)
+	if !ok {
+		return nil, "", errors.New("multipart request body must be a JSON object")
+	}
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := fields[key]
+		var text string
+		switch typed := value.(type) {
+		case string:
+			text = typed
+		default:
+			b, err := json.Marshal(value)
+			if err != nil {
+				_ = writer.Close()
+				return nil, "", fmt.Errorf("encode multipart field %s: %w", key, err)
+			}
+			text = string(b)
+		}
+		if err := writer.WriteField(key, text); err != nil {
+			_ = writer.Close()
+			return nil, "", err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return nil, "", err
+	}
+	return buf.Bytes(), writer.FormDataContentType(), nil
+}
+
+func businessSuccess(body map[string]any) bool {
+	if body == nil {
+		return true
+	}
+	value, ok := body["code"]
+	if !ok || value == nil || fmt.Sprint(value) == "" {
+		return true
+	}
+	switch code := value.(type) {
+	case float64:
+		return int(code) == 200
+	case int:
+		return code == 200
+	case json.Number:
+		return code.String() == "200"
+	case string:
+		return strings.TrimSpace(code) == "200"
+	default:
+		return fmt.Sprint(code) == "200"
+	}
 }
 
 func (c *Client) LastRateLimitWait() time.Duration {
@@ -162,20 +236,11 @@ func (c *Client) waitCrossProcess(ctx context.Context) (time.Duration, error) {
 	lockDir := filepath.Join(dir, "rate_limiter.lock")
 	stateFile := filepath.Join(dir, "rate_limiter.next")
 	start := time.Now()
-	for {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return 0, err
-		}
-		if err := os.Mkdir(lockDir, 0o700); err == nil {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		case <-time.After(100 * time.Millisecond):
-		}
+	release, err := lockfile.Acquire(ctx, lockDir)
+	if err != nil {
+		return 0, err
 	}
-	defer os.Remove(lockDir)
+	defer release()
 
 	var next time.Time
 	if b, err := os.ReadFile(stateFile); err == nil {
@@ -261,6 +326,34 @@ type StatusError struct {
 	Body       map[string]any
 	Retryable  bool
 	RetryAfter time.Duration
+}
+
+type BusinessError struct {
+	Body map[string]any
+}
+
+func (e *BusinessError) Error() string {
+	if e == nil {
+		return "CaptainBI business error"
+	}
+	if msg, ok := e.Body["msg"].(string); ok && msg != "" {
+		return security.RedactString(msg)
+	}
+	return "CaptainBI business error"
+}
+
+func (e *BusinessError) APICode() any {
+	if e == nil || e.Body == nil {
+		return nil
+	}
+	return e.Body["code"]
+}
+
+func (e *BusinessError) APIMessage() string {
+	if e == nil || e.Body == nil {
+		return ""
+	}
+	return fmt.Sprint(e.Body["msg"])
 }
 
 func (e *StatusError) Error() string {
