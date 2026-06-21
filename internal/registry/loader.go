@@ -47,6 +47,7 @@ func LoadWithInfo() (*Registry, LoadInfo, error) {
 		return baseline, info, nil
 	}
 	info.OverridePath = path
+	// #nosec G304 -- path is either the private managed override or explicit operator configuration.
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return baseline, info, nil
@@ -108,7 +109,7 @@ func InstallOverride(ctx context.Context, data []byte) (LoadInfo, error) {
 		return LoadInfo{}, err
 	}
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return LoadInfo{}, err

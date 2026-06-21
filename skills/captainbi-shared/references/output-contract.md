@@ -21,7 +21,11 @@ Success:
     "pages_failed": 0,
     "partial": false,
     "has_more": false,
+	"next_window": null,
     "next_page": null,
+	"next_offset": 0,
+	"windows_total": 1,
+	"windows_completed": 1,
     "rate_limit_wait_ms": 0,
     "channel": "",
     "output_file": ""
@@ -67,6 +71,7 @@ Stable error subtypes:
 - `CHANNEL_INVALID`
 - `VALIDATION_REQUIRED_FLAG`
 - `VALIDATION_BAD_PARAM`
+- `INPUT_PATH_UNSAFE`
 - `RATE_LIMIT_EXCEEDED`
 - `HTTP_5XX`
 - `NETWORK_FAILED`
@@ -75,6 +80,7 @@ Stable error subtypes:
 - `WRITE_CONFIRMATION_EXPIRED`
 - `WRITE_CONFIRMATION_REPLAY`
 - `WRITE_MULTI_CHANNEL_FORBIDDEN`
+- `WRITE_NOT_ALLOWLISTED`
 - `API_BUSINESS_ERROR`
 
 Write dry-run data includes:
@@ -93,6 +99,13 @@ Write dry-run data includes:
     "request_hash": "...",
     "expires_at": "...",
     "confirm_flag": "--confirm-request"
+  },
+  "policy": {
+    "allowlist_required": true,
+    "allowlisted": false,
+    "allow_command": "goods.set-group"
   }
 }
 ```
+
+For a paginated or date-range result, continue only when `meta.has_more=true`. Reuse the unchanged filters and pass `meta.next_window`, `meta.next_page`, and `meta.next_offset` through `--resume-from-window`, `--resume-from-page`, and `--resume-offset`. `modified_time_window` ranges are split into non-overlapping 31-day windows; `report_date` batches use inclusive `--range-start/--range-end` values in matching `YYYYMMDD` or `YYYYMM` format.

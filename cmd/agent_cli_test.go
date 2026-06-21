@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -140,12 +141,37 @@ func TestShortcutHelpIncludesAgentFlagsAndExamples(t *testing.T) {
 				t.Fatalf("shortcut help failed: %v", err)
 			}
 			help := out.String()
-			for _, text := range []string{"Examples:", "--machine", "--summary", "--dry-run"} {
+			for _, text := range []string{"Examples:", "--machine", "--summary", "--dry-run", "--range-start", "--resume-from-window"} {
 				if !strings.Contains(help, text) {
 					t.Fatalf("missing %s in help:\n%s", text, help)
 				}
 			}
 		})
+	}
+}
+
+func TestReportDateRangeSatisfiesRequiredFlag(t *testing.T) {
+	seen := []string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.URL.Query().Get("report_date"))
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []map[string]any{{"date": r.URL.Query().Get("report_date")}}})
+	}))
+	defer server.Close()
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvAccessToken, "test-token")
+	t.Setenv(core.EnvBaseURL, server.URL)
+	t.Setenv(core.EnvOpenChannelID, "test-channel")
+	t.Setenv(core.EnvRateLimit, "10000")
+	globals = globalOptions{}
+	root := NewRootCmd()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"finance", "store-daily", "--page-all", "--range-start", "20260601", "--range-end", "20260603", "--page-delay", "1", "--machine"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("report date range command failed: %v", err)
+	}
+	if len(seen) != 3 || seen[0] != "20260601" || seen[2] != "20260603" {
+		t.Fatalf("unexpected report dates: %#v", seen)
 	}
 }
 
@@ -159,6 +185,7 @@ func TestSkillDescriptionsUseRoutingContract(t *testing.T) {
 	}
 	for _, file := range files {
 		t.Run(filepath.Base(filepath.Dir(file)), func(t *testing.T) {
+			// #nosec G304 -- file comes from the repository-local skills/*/SKILL.md glob above.
 			b, err := os.ReadFile(file)
 			if err != nil {
 				t.Fatal(err)
@@ -319,6 +346,7 @@ func TestWriteDryRunIssuesBoundApproval(t *testing.T) {
 func TestAgentWriteRequiresConfirmRequest(t *testing.T) {
 	t.Setenv("CAPTAINBI_CONFIG_DIR", t.TempDir())
 	t.Setenv("CBI_AGENT", "1")
+	t.Setenv(core.EnvWriteAllowlist, "fba.sync-shipment")
 	globals = globalOptions{}
 	root := NewRootCmd()
 	root.SetOut(&bytes.Buffer{})
@@ -333,6 +361,68 @@ func TestAgentWriteRequiresConfirmRequest(t *testing.T) {
 	}
 	if errorSubtype(err) != "CONFIRMATION_REQUIRED" {
 		t.Fatalf("unexpected subtype %s", errorSubtype(err))
+	}
+}
+
+func TestAgentDangerousWriteRequiresAllowlistBeforeConsumingApproval(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvAccessToken, "test-token")
+	t.Setenv(core.EnvRateLimit, "6000")
+	t.Setenv("CBI_AGENT", "1")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"code":200,"msg":"ok","data":[]}`)
+	}))
+	defer server.Close()
+	t.Setenv(core.EnvBaseURL, server.URL)
+	args := []string{"--machine", "goods", "set-group", "--group-id", "2", "--goods-id", "1"}
+	dryOut, err := executeTestRoot(append(append([]string{}, args...), "--dry-run"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(dryOut, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	preview := envelope["data"].(map[string]any)
+	policy := preview["policy"].(map[string]any)
+	if policy["allowlist_required"] != true || policy["allowlisted"] != false {
+		t.Fatalf("unexpected dry-run policy: %#v", policy)
+	}
+	hash := preview["approval"].(map[string]any)["request_hash"].(string)
+	actual := append(append([]string{}, args...), "--confirm-request", hash)
+	if _, err := executeTestRoot(actual); err == nil || errorSubtype(err) != internalerrs.WriteNotAllowlisted {
+		t.Fatalf("expected write allowlist rejection, got %v", err)
+	}
+	t.Setenv(core.EnvWriteAllowlist, "goods.set-group")
+	if _, err := executeTestRoot(actual); err != nil {
+		t.Fatalf("approval should remain usable after allowlist correction: %v", err)
+	}
+}
+
+func TestWriteAllowlistConfigCommands(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	if _, err := executeTestRoot([]string{"--machine", "config", "write-allowlist", "add", "goods.set-group"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := core.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.WriteAllowlist) != 1 || cfg.WriteAllowlist[0] != "goods.set-group" {
+		t.Fatalf("unexpected allowlist: %#v", cfg.WriteAllowlist)
+	}
+	if _, err := executeTestRoot([]string{"--machine", "config", "write-allowlist", "add", "goods.list"}); err == nil {
+		t.Fatal("read command must not be accepted by write allowlist")
+	}
+	if _, err := executeTestRoot([]string{"--machine", "config", "write-allowlist", "remove", "goods.set-group"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = core.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.WriteAllowlist) != 0 {
+		t.Fatalf("allowlist was not removed: %#v", cfg.WriteAllowlist)
 	}
 }
 
@@ -440,12 +530,18 @@ func TestAllWriteEndpointsDryRunAndMockExecution(t *testing.T) {
 	t.Setenv("CAPTAINBI_ACCESS_TOKEN", "test-token")
 	t.Setenv("CAPTAINBI_RATE_LIMIT", "6000")
 	t.Setenv("CBI_AGENT", "1")
+	t.Setenv(core.EnvWriteAllowlist, strings.Join([]string{
+		"goods.edit-group", "goods.set-group", "sales.upload-fbm-shipping",
+		"finance.set-cost", "finance.set-rule", "fba.sync-shipment",
+	}, ","))
 	var mu sync.Mutex
 	called := map[string]int{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.Header.Get("content-type"), "multipart/form-data;") {
 			t.Errorf("%s content-type = %q", r.URL.Path, r.Header.Get("content-type"))
 		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		// #nosec G120 -- MaxBytesReader above bounds the entire multipart body in this test server.
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
 			t.Errorf("%s multipart parse: %v", r.URL.Path, err)
 		}

@@ -5,6 +5,7 @@
 - Read `data.approval.request_hash` and `data.approval.expires_at` from the dry-run result.
 - Stop and show the exact method, path, channel alias and body to the user. Do not execute the write until the user explicitly approves that preview.
 - Execute the unchanged request with `--confirm-request <request_hash>`. The hash expires after 15 minutes and is consumed before the request is sent.
+- For `write_dangerous` and `sync_trigger`, verify `policy.allowlisted=true`. After human review, add only the exact registered command with `cbi config write-allowlist add <domain.command>` and remove it when finished.
 - Never recompute, reuse or automatically approve a request hash. If the payload changes or the call fails, start again with a new dry-run.
 - Writes cannot use `--channel all` or a multi-channel file.
 - Bare `--confirm` and `--yes` do not authorize Agent-mode writes.

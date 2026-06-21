@@ -133,7 +133,7 @@ func fetchBytes(ctx context.Context, source string, maxBytes int64) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("GET %s returned HTTP %d", source, resp.StatusCode)
 	}

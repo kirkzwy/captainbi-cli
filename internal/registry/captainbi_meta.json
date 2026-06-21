@@ -140,7 +140,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": false,
@@ -247,7 +249,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -426,7 +430,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -576,7 +582,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": false,
@@ -928,7 +936,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": false,
@@ -1128,7 +1138,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -1334,7 +1346,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -1830,7 +1844,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -2017,7 +2033,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -2276,7 +2294,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -2878,7 +2897,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -3460,7 +3480,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -4070,7 +4091,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -4678,7 +4700,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -4845,7 +4869,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -5211,7 +5237,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -5399,7 +5427,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -5971,7 +6001,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -6581,7 +6612,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -7171,7 +7203,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -7781,7 +7814,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -8616,7 +8650,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -9000,7 +9036,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -9506,7 +9544,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -9717,7 +9757,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -9898,7 +9940,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -10312,7 +10356,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -10579,7 +10625,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -10880,7 +10928,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -11082,7 +11132,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -11322,7 +11374,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -11579,7 +11632,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -11761,7 +11816,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -11961,7 +12018,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -12222,7 +12280,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -12414,7 +12474,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -12662,7 +12723,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -12838,7 +12901,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -13091,7 +13155,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -13287,7 +13353,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -13552,7 +13619,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -13734,7 +13803,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -13916,7 +13987,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -14076,7 +14149,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -14323,7 +14397,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -14566,7 +14641,8 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "report_date"
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -14821,7 +14897,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -15117,7 +15195,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -15263,7 +15343,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,
@@ -15526,7 +15608,9 @@
           "pagination": {
             "type": "page_rows",
             "maxRows": 100,
-            "totalField": "max_result"
+            "totalField": "max_result",
+            "rangeType": "modified_time_window",
+            "windowDays": 31
           },
           "riskLevel": "read",
           "requiresOpenChannelId": true,

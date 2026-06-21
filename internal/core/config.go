@@ -6,7 +6,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zalando/go-keyring"
@@ -19,13 +21,14 @@ const (
 	DefaultBaseURL = "https://openapi.captainbi.com"
 	DefaultRate    = 20
 
-	EnvClientID      = "CAPTAINBI_CLIENT_ID"
-	EnvClientSecret  = "CAPTAINBI_CLIENT_SECRET"
-	EnvAccessToken   = "CAPTAINBI_ACCESS_TOKEN"
-	EnvBaseURL       = "CAPTAINBI_BASE_URL"
-	EnvOpenChannelID = "CAPTAINBI_OPEN_CHANNEL_ID"
-	EnvRateLimit     = "CAPTAINBI_RATE_LIMIT"
-	EnvConfigDir     = "CAPTAINBI_CONFIG_DIR"
+	EnvClientID       = "CAPTAINBI_CLIENT_ID"
+	EnvClientSecret   = "CAPTAINBI_CLIENT_SECRET"
+	EnvAccessToken    = "CAPTAINBI_ACCESS_TOKEN"
+	EnvBaseURL        = "CAPTAINBI_BASE_URL"
+	EnvOpenChannelID  = "CAPTAINBI_OPEN_CHANNEL_ID"
+	EnvRateLimit      = "CAPTAINBI_RATE_LIMIT"
+	EnvConfigDir      = "CAPTAINBI_CONFIG_DIR"
+	EnvWriteAllowlist = "CAPTAINBI_WRITE_ALLOWLIST"
 )
 
 type Config struct {
@@ -40,6 +43,7 @@ type Config struct {
 	PlainSecretFile string            `json:"plain_secret_file,omitempty"`
 	PlainSecretHint string            `json:"plain_secret_hint,omitempty"`
 	Channels        map[string]string `json:"channels,omitempty"`
+	WriteAllowlist  []string          `json:"write_allowlist,omitempty"`
 }
 
 func ConfigDir() (string, error) {
@@ -93,6 +97,7 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 	cfg := &Config{BaseURL: DefaultBaseURL, RateLimit: DefaultRate}
+	// #nosec G304 -- path is the dedicated config path selected by the user or OS config directory.
 	if b, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(b, cfg); err != nil {
 			return nil, err
@@ -110,6 +115,7 @@ func LoadConfig() (*Config, error) {
 	if cfg.Channels == nil {
 		cfg.Channels = map[string]string{}
 	}
+	cfg.WriteAllowlist = uniqueStrings(cfg.WriteAllowlist)
 	return cfg, nil
 }
 
@@ -128,6 +134,7 @@ func SaveConfig(cfg *Config) error {
 		return err
 	}
 	defer release()
+	// #nosec G117 -- token cache is intentionally persisted only in the private 0600 config file.
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
@@ -137,7 +144,7 @@ func SaveConfig(cfg *Config) error {
 		return err
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() { _ = os.Remove(tmpName) }()
 	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return err
@@ -176,6 +183,23 @@ func ApplyEnv(cfg *Config) {
 			cfg.RateLimit = n
 		}
 	}
+	if v := os.Getenv(EnvWriteAllowlist); v != "" {
+		cfg.WriteAllowlist = uniqueStrings(strings.Split(v, ","))
+	}
+}
+
+func uniqueStrings(values []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" && !seen[value] {
+			seen[value] = true
+			out = append(out, value)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func SaveClientSecret(clientID, secret string) error {

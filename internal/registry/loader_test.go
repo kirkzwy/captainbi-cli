@@ -25,7 +25,9 @@ func TestLoadRegistry(t *testing.T) {
 	requestBodies := 0
 	getBodySchemas := 0
 	posts := 0
+	rangeTypes := map[string]int{}
 	for _, method := range r.AllMethods() {
+		rangeTypes[method.Pagination.RangeType]++
 		if method.ResponseSchema == nil {
 			t.Fatalf("method %s missing responseSchema", method.Name)
 		}
@@ -56,6 +58,9 @@ func TestLoadRegistry(t *testing.T) {
 			}
 			flags[param.Flag] = true
 		}
+	}
+	if rangeTypes["modified_time_window"] != 34 || rangeTypes["report_date"] != 16 || rangeTypes[""] != 15 {
+		t.Fatalf("unexpected range strategy counts: %#v", rangeTypes)
 	}
 	if requestBodies != 36 || getBodySchemas != 28 || posts != 8 {
 		t.Fatalf("registry contract counts: requestBodies=%d getBodySchemas=%d posts=%d", requestBodies, getBodySchemas, posts)

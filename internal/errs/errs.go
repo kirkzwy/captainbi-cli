@@ -1,9 +1,9 @@
 package errs
 
 const (
-	AuthMissingCredentials     = "AUTH_MISSING_CREDENTIALS"
+	AuthMissingCredentials     = "AUTH_MISSING_CREDENTIALS" // #nosec G101 -- stable error subtype, not a credential.
 	AuthInvalidClient          = "AUTH_INVALID_CLIENT"
-	AuthTokenRefreshFailed     = "AUTH_TOKEN_REFRESH_FAILED"
+	AuthTokenRefreshFailed     = "AUTH_TOKEN_REFRESH_FAILED" // #nosec G101 -- stable error subtype, not a credential.
 	ChannelMissing             = "CHANNEL_MISSING"
 	ChannelAliasNotFound       = "CHANNEL_ALIAS_NOT_FOUND"
 	ChannelInvalid             = "CHANNEL_INVALID"
@@ -18,6 +18,7 @@ const (
 	WriteConfirmationExpired   = "WRITE_CONFIRMATION_EXPIRED"
 	WriteConfirmationReplay    = "WRITE_CONFIRMATION_REPLAY"
 	WriteMultiChannelForbidden = "WRITE_MULTI_CHANNEL_FORBIDDEN"
+	WriteNotAllowlisted        = "WRITE_NOT_ALLOWLISTED"
 	APIBusinessError           = "API_BUSINESS_ERROR"
 )
 
@@ -69,6 +70,8 @@ func Hint(subtype string) string {
 		return "rerun --dry-run, ask the user to approve the exact preview, then pass its current --confirm-request hash"
 	case WriteMultiChannelForbidden:
 		return "write to one configured channel alias at a time and approve each payload separately"
+	case WriteNotAllowlisted:
+		return "review the command risk, then add its domain.command reference with cbi config write-allowlist add"
 	case APIBusinessError:
 		return "read api_code/api_msg, fix the request parameters or channel, then retry"
 	default:

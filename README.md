@@ -109,11 +109,13 @@ cbi tools export --format openai
 | `CAPTAINBI_ACCESS_TOKEN` | inject an existing access token and skip token retrieval |
 | `CAPTAINBI_CONFIG_DIR` | private writable directory for config, token cache, locks and write previews |
 | `CAPTAINBI_REGISTRY_FILE` | explicit compatible Registry metadata override; normally use `cbi registry update` |
+| `CAPTAINBI_WRITE_ALLOWLIST` | comma-separated process-level Agent permissions for registered dangerous writes |
 
 ## Safety
 
 - Secrets and tokens are redacted in dry-run, config display and errors.
 - Agent writes require `--dry-run`, explicit user approval, then the unchanged request with `--confirm-request <request_hash>`.
+- Agent `write_dangerous` and `sync_trigger` commands must also be explicitly enabled with `cbi config write-allowlist add <domain.command>`.
 - Approval hashes expire after 15 minutes, are consumed before sending and cannot be replayed.
 - Writes cannot use `--channel all`; approve one channel and payload at a time.
 - Unknown raw non-GET calls require `--unsafe-raw-write` in addition to the approval flow.
@@ -128,7 +130,8 @@ cbi tools export --format openai
 - Use `CBI_AGENT=1` when the host should receive machine-friendly errors by default.
 - Use `--summary` before large pulls; use `--output-file` for full data.
 - Page-all for `page_rows` endpoints stops on `len(data) < rows`; `max_result` is optional.
-- Read `meta.has_more` and `meta.next_page` to decide whether to continue; resume long pulls with `--resume-from-page`.
+- Read `meta.has_more` and the `next_window/next_page/next_offset` cursor to decide whether to continue; pass them back through the matching `--resume-*` flags.
+- `--page-all` automatically splits modified-time spans into non-overlapping 31-day windows. For report endpoints, use inclusive `--range-start/--range-end` in matching `YYYYMMDD` or `YYYYMM` format.
 - Success output uses `ok/data/meta`; failure output uses `ok/error/meta`.
 - Read `error.kind`, `error.subtype`, `error.hint`, `error.api_code` and `error.api_msg` on failures.
 - CaptainBI `code != 200` is a failed call even when HTTP status is 200.
@@ -153,6 +156,15 @@ After a write, query the affected resource and verify the result. If the payload
 
 Maintainers can run the staged real-write acceptance with `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore`. It requires dedicated test fixtures and never crosses an approval boundary automatically.
 
+For a dangerous Agent write, review and enable only the exact registered command before applying the approved preview:
+
+```bash
+cbi config write-allowlist add goods.set-group
+cbi config write-allowlist list --machine --format json
+# Remove the permission when the workflow is finished
+cbi config write-allowlist remove goods.set-group
+```
+
 ## Registry Updates
 
 ```bash
@@ -168,6 +180,9 @@ cbi registry reset --machine --format json
 
 ```bash
 go test ./...
+go test -race ./...
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 go run ./tools/gen-registry
 go build -buildvcs=false -o bin/cbi .
 ```

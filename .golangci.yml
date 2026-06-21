@@ -1,0 +1,37 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - depguard
+    - errorlint
+    - forbidigo
+    - gosec
+  settings:
+    depguard:
+      rules:
+        internal-boundary:
+          list-mode: lax
+          files:
+            - "internal/**/*.go"
+          deny:
+            - pkg: github.com/kirkzwy/captainbi-cli/cmd
+              desc: internal packages must not depend on the Cobra command layer
+        command-boundary:
+          list-mode: lax
+          files:
+            - "cmd/**/*.go"
+          deny:
+            - pkg: github.com/kirkzwy/captainbi-cli/tools
+              desc: runtime commands must not import development generators
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^log\.Fatal.*$
+          msg: return structured errors instead of terminating from library code
+        - pattern: ^http\.(Get|Post)$
+          msg: use a client with context, timeout, status and size checks
+
+run:
+  timeout: 5m

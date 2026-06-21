@@ -56,6 +56,17 @@ run_json() {
   chmod 600 "$OUTPUT_DIR/$output"
 }
 
+require_allowlist() {
+  local configured
+  configured="$("$CBI_BIN" config write-allowlist list --machine --format json)"
+  for ref in "$@"; do
+    if ! jq -e --arg ref "$ref" '.data | index($ref) != null' <<<"$configured" >/dev/null; then
+      echo "Agent write policy blocks $ref. Review it, then run: cbi config write-allowlist add $ref" >&2
+      exit 2
+    fi
+  done
+}
+
 preview_targets() {
   run_json operator-preview.json --channel "$CHANNEL" goods set-operate-user \
     --goods-id "$GOODS_ID" --operation-user-admin-id "$TARGET_OPERATOR" --dry-run
@@ -89,6 +100,7 @@ case "$MODE" in
     : "${CAPTAINBI_WRITE_OPERATOR_HASH:?CAPTAINBI_WRITE_OPERATOR_HASH is required}"
     : "${CAPTAINBI_WRITE_GROUP_HASH:?CAPTAINBI_WRITE_GROUP_HASH is required}"
     : "${CAPTAINBI_WRITE_SHIPMENT_HASH:?CAPTAINBI_WRITE_SHIPMENT_HASH is required}"
+    require_allowlist goods.set-group fba.sync-shipment
     run_json operator-result.json --channel "$CHANNEL" goods set-operate-user \
       --goods-id "$GOODS_ID" --operation-user-admin-id "$TARGET_OPERATOR" --confirm-request "$CAPTAINBI_WRITE_OPERATOR_HASH"
     run_json group-result.json goods set-group \
@@ -105,6 +117,7 @@ case "$MODE" in
   restore)
     : "${CAPTAINBI_WRITE_OPERATOR_RESTORE_HASH:?CAPTAINBI_WRITE_OPERATOR_RESTORE_HASH is required}"
     : "${CAPTAINBI_WRITE_GROUP_RESTORE_HASH:?CAPTAINBI_WRITE_GROUP_RESTORE_HASH is required}"
+    require_allowlist goods.set-group
     run_json operator-restore-result.json --channel "$CHANNEL" goods set-operate-user \
       --goods-id "$GOODS_ID" --operation-user-admin-id "$ORIGINAL_OPERATOR" --confirm-request "$CAPTAINBI_WRITE_OPERATOR_RESTORE_HASH"
     run_json group-restore-result.json goods set-group \

@@ -77,3 +77,45 @@ func TestParseRetryAfterHTTPDate(t *testing.T) {
 		t.Fatalf("retry after date = %s", got)
 	}
 }
+
+func Test429RetryUsesRetryAfterHeader(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("content-type", "application/json")
+		if calls == 1 {
+			w.Header().Set("Retry-After", "7")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = io.WriteString(w, `{"code":429,"msg":"slow down"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"code":200,"msg":"ok","data":[]}`)
+	}))
+	defer server.Close()
+	c := New(&core.Config{BaseURL: server.URL, RateLimit: 6000}, func(context.Context, bool) (string, error) { return "token", nil })
+	waits := []time.Duration{}
+	c.wait = func(_ context.Context, delay time.Duration) error {
+		waits = append(waits, delay)
+		return nil
+	}
+	if _, err := c.Do(context.Background(), Request{Method: http.MethodGet, Path: "/test"}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || len(waits) != 1 || waits[0] != 7*time.Second {
+		t.Fatalf("calls=%d waits=%v", calls, waits)
+	}
+}
+
+func Test429FallbackDelayUsesJitter(t *testing.T) {
+	identity := func(value time.Duration) time.Duration { return value }
+	if got := retryDelay(1, &StatusError{StatusCode: 429}, identity); got != 5*time.Second {
+		t.Fatalf("first fallback delay=%s", got)
+	}
+	for _, base := range []time.Duration{5 * time.Second, 15 * time.Second, 45 * time.Second} {
+		got := jitterDuration(base)
+		if got < base-base/5 || got > base+base/5 {
+			t.Fatalf("jitter %s outside expected range for %s", got, base)
+		}
+	}
+}

@@ -162,11 +162,14 @@ cbi schema goods.list --jq '.params'
 | `--jq` | 使用 gojq 表达式过滤 JSON 输出 |
 | `--machine` | 机器模式：纯结构化输出，适合 Agent/脚本解析 |
 | `--dry-run` | 只展示请求结构，不发送请求 |
-| `--page-all` | 自动分页，当前完整支持 `page_rows` 类型 |
+| `--page-all` | 自动分页，并执行 Registry 配置的时间窗/报表日期批次 |
 | `--page-limit` | 自动分页的最大页数，默认 10 |
 | `--page-delay` | 自动分页的页间延迟，默认 3000ms |
 | `--max-records` | 自动分页最多返回多少条 |
 | `--resume-from-page` | 从指定页继续自动分页 |
+| `--resume-from-window` | 从指定时间窗/报表日期批次继续 |
+| `--resume-offset` | 从被 `--max-records` 截断的页内偏移继续 |
+| `--range-start` / `--range-end` | 按日 `YYYYMMDD` 或按月 `YYYYMM` 批量获取 report_date |
 | `--summary` | 只输出行数和字段列表，适合 Agent 探测数据规模 |
 | `--output-file` | 将完整结果写入文件，stdout 只返回文件路径和行数 |
 | `--channel` | 使用 `config channels` 中的店铺别名，也可用 `all` |
@@ -186,12 +189,14 @@ cbi schema goods.list --jq '.params'
 | `CAPTAINBI_ACCESS_TOKEN` | 直接注入已有 access token，跳过 token 获取 |
 | `CAPTAINBI_CONFIG_DIR` | 配置、token、锁和写入预览使用的私有可写目录 |
 | `CAPTAINBI_REGISTRY_FILE` | 显式指定兼容 Registry metadata；日常优先使用 `cbi registry update` |
+| `CAPTAINBI_WRITE_ALLOWLIST` | 逗号分隔的进程级 Agent 危险写入命令许可 |
 
 ## 安全策略
 
 - `client_secret` 不通过普通 flag 传递，避免出现在 shell history 或进程列表中。
 - token、secret、authorization、OpenChannelId 在 dry-run、错误和配置展示中会脱敏。
 - Agent 写入必须先 `--dry-run`，由用户确认完全相同的预览后，再传 `--confirm-request <request_hash>`。
+- Agent 执行 `write_dangerous` 或 `sync_trigger` 前，还必须用 `cbi config write-allowlist add <domain.command>` 显式放行该注册命令。
 - hash 15 分钟过期，并在发送前消费，不能重放。
 - 写入不支持 `--channel all`，必须逐店铺、逐 payload 审批。
 - 未知 raw 非 GET 调用还必须显式传 `--unsafe-raw-write`。
@@ -242,8 +247,9 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 - 成功输出读取 `ok/data/meta`；失败输出读取 `ok/error/meta`。
 - 失败时优先读取 `error.kind`、`error.subtype`、`error.hint`、`error.api_code`、`error.api_msg` 来决定是否重试或补参数。
 - 即使 HTTP 为 200，只要 CaptainBI `code != 200`，CLI 也会返回失败，不能把空 data 当作成功。
-- 翻页时优先读取 `meta.has_more` 和 `meta.next_page`，不要自行推断是否还有下一页。
+- 翻页时读取 `meta.has_more` 和 `next_window/next_page/next_offset`，并原样传给对应 `--resume-*` 参数。
 - `page_rows` 分页不强依赖 CaptainBI 返回总数字段；以 `len(data) < rows` 作为主要结束条件。
+- `--page-all` 会把修改时间跨度拆成不重叠的 31 天窗口；报表接口可用 `--range-start/--range-end` 按日或按月批量获取。
 
 ## Agent 写入流程
 
@@ -265,6 +271,14 @@ cbi --channel main goods set-operate-user \
 
 维护者可使用 `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore` 分阶段执行真实写入验收。该脚本需要专用测试对象，且不会自动跨过任何审批节点。
 
+危险写入只对当前需要的注册命令开放，流程结束后移除：
+
+```bash
+cbi config write-allowlist add goods.set-group
+cbi config write-allowlist list --machine --format json
+cbi config write-allowlist remove goods.set-group
+```
+
 ## Registry 更新
 
 ```bash
@@ -281,6 +295,11 @@ cbi registry reset --machine --format json
 ```bash
 # 运行测试
 go test ./...
+go test -race ./...
+
+# 静态检查和漏洞检查
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
 # 从 CaptainBI OpenAPI 重新生成 Registry 和端点文档
 go run ./tools/gen-registry
@@ -296,7 +315,6 @@ go build -o bin/cbi .
 
 ## 当前限制
 
-- `--page-all` 当前完整支持 `page_rows` 分页，并支持 `--max-records` 和 `--resume-from-page`。
-- `modified_time_window` 和 `report_date` 已进入 Registry，但目前仍按单次请求执行。
+- `--page-all` 支持页内分页、31 天修改时间拆窗、日报/月报批量，并支持窗口/页/页内偏移断点续拉。
 - 简单 form-data body 字段已生成独立 flags；数组/对象 body 使用 `--data`、stdin 或文件输入。
 - npm registry 暂不作为当前主路径；Agent 测试阶段使用 GitHub Release npm tarball：`npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz`。

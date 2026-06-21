@@ -44,16 +44,57 @@ type globalOptions struct {
 }
 
 type requestOptions struct {
-	dryRun      bool
-	jq          string
-	pageAll     bool
-	pageLimit   int
-	pageDelay   time.Duration
-	maxRecords  int
-	resumePage  int
-	confirm     bool
-	yes         bool
-	confirmHash string
+	dryRun       bool
+	jq           string
+	pageAll      bool
+	pageLimit    int
+	pageDelay    time.Duration
+	maxRecords   int
+	resumePage   int
+	resumeWindow int
+	resumeOffset int
+	rangeStart   string
+	rangeEnd     string
+	confirm      bool
+	yes          bool
+	confirmHash  string
+}
+
+type paginationFlags struct {
+	pageAll      bool
+	pageLimit    int
+	pageDelay    int
+	maxRecords   int
+	resumePage   int
+	resumeWindow int
+	resumeOffset int
+	rangeStart   string
+	rangeEnd     string
+}
+
+func (p paginationFlags) apply(opts requestOptions) requestOptions {
+	opts.pageAll = p.pageAll
+	opts.pageLimit = p.pageLimit
+	opts.pageDelay = time.Duration(p.pageDelay) * time.Millisecond
+	opts.maxRecords = p.maxRecords
+	opts.resumePage = p.resumePage
+	opts.resumeWindow = p.resumeWindow
+	opts.resumeOffset = p.resumeOffset
+	opts.rangeStart = p.rangeStart
+	opts.rangeEnd = p.rangeEnd
+	return opts
+}
+
+func addPaginationFlags(cmd *cobra.Command, p *paginationFlags) {
+	cmd.Flags().BoolVar(&p.pageAll, "page-all", false, "fetch all pages and configured date/time windows")
+	cmd.Flags().IntVar(&p.pageLimit, "page-limit", 10, "max total pages to fetch with --page-all; 0 means unlimited")
+	cmd.Flags().IntVar(&p.pageDelay, "page-delay", 3000, "delay in milliseconds between requests")
+	cmd.Flags().IntVar(&p.maxRecords, "max-records", 0, "stop page-all after collecting this many records")
+	cmd.Flags().IntVar(&p.resumePage, "resume-from-page", 1, "start page for --page-all resume")
+	cmd.Flags().IntVar(&p.resumeWindow, "resume-from-window", 1, "start range window for --page-all resume")
+	cmd.Flags().IntVar(&p.resumeOffset, "resume-offset", 0, "skip records already returned from the resumed page")
+	cmd.Flags().StringVar(&p.rangeStart, "range-start", "", "first YYYYMMDD or YYYYMM report_date for batch retrieval")
+	cmd.Flags().StringVar(&p.rangeEnd, "range-end", "", "last YYYYMMDD or YYYYMM report_date for batch retrieval")
 }
 
 var globals globalOptions
@@ -176,8 +217,8 @@ func newConfigCmd() *cobra.Command {
 			if err := core.SaveConfig(cfg); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "configuration saved")
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "configuration saved")
+			return err
 		},
 	}
 	initCmd.Flags().StringVar(&clientID, "client-id", "", "CaptainBI APPID/client_id")
@@ -189,6 +230,7 @@ func newConfigCmd() *cobra.Command {
 	initCmd.Flags().StringVar(&openChannelID, "open-channel-id", "", "default OpenChannelId")
 	cmd.AddCommand(initCmd)
 	cmd.AddCommand(newChannelsCmd())
+	cmd.AddCommand(newWriteAllowlistCmd())
 	showCmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show non-sensitive configuration",
@@ -198,19 +240,112 @@ func newConfigCmd() *cobra.Command {
 				return err
 			}
 			view := map[string]any{
-				"client_id":       security.RedactValue(cfg.ClientID),
-				"base_url":        cfg.BaseURL,
-				"open_channel_id": security.RedactValue(cfg.OpenChannelID),
-				"rate_limit":      cfg.RateLimit,
-				"token_expiry":    cfg.TokenExpiry,
-				"channels_count":  len(cfg.Channels),
-				"plain_secret":    cfg.PlainSecretHint != "",
+				"client_id":             security.RedactValue(cfg.ClientID),
+				"base_url":              cfg.BaseURL,
+				"open_channel_id":       security.RedactValue(cfg.OpenChannelID),
+				"rate_limit":            cfg.RateLimit,
+				"token_expiry":          cfg.TokenExpiry,
+				"channels_count":        len(cfg.Channels),
+				"write_allowlist_count": len(cfg.WriteAllowlist),
+				"plain_secret":          cfg.PlainSecretHint != "",
 			}
 			return outfmt.Write(cmd.OutOrStdout(), view, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
 		},
 	}
 	cmd.AddCommand(showCmd)
 	return cmd
+}
+
+func newWriteAllowlistCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "write-allowlist", Short: "Manage Agent dangerous-write command policy"}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List allowlisted dangerous-write command references",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			return writeValue(cmd, cfg.WriteAllowlist, nil, "")
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "add <domain.command>",
+		Short: "Allow an Agent to execute this registered dangerous write after approval",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := canonicalWriteReference(args[0])
+			if err != nil {
+				return err
+			}
+			cfg, err := core.LoadConfig()
+			if err != nil {
+				return err
+			}
+			cfg.WriteAllowlist = append(cfg.WriteAllowlist, ref)
+			cfg.WriteAllowlist = sortedUnique(cfg.WriteAllowlist)
+			if err := core.SaveConfig(cfg); err != nil {
+				return err
+			}
+			return writeValue(cmd, map[string]any{"ok": true, "command": ref}, nil, "")
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "remove <domain.command>",
+		Short: "Remove an Agent dangerous-write command permission",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := canonicalWriteReference(args[0])
+			if err != nil {
+				return err
+			}
+			cfg, err := core.LoadConfig()
+			if err != nil {
+				return err
+			}
+			filtered := cfg.WriteAllowlist[:0]
+			for _, value := range cfg.WriteAllowlist {
+				if value != ref {
+					filtered = append(filtered, value)
+				}
+			}
+			cfg.WriteAllowlist = filtered
+			if err := core.SaveConfig(cfg); err != nil {
+				return err
+			}
+			return writeValue(cmd, map[string]any{"ok": true, "command": ref}, nil, "")
+		},
+	})
+	return cmd
+}
+
+func canonicalWriteReference(input string) (string, error) {
+	reg, err := registry.Load()
+	if err != nil {
+		return "", err
+	}
+	method, ok := reg.Find(input)
+	if !ok || method.RiskLevel == "read" {
+		return "", typedH("business", "write command reference was not found: "+input, "use cbi schema <domain.command> and allow only a registered write command")
+	}
+	ref, ok := reg.ReferenceFor(method)
+	if !ok {
+		return "", typedH("business", "could not resolve canonical write command reference", "update or reset the Registry, then retry")
+	}
+	return ref, nil
+}
+
+func sortedUnique(values []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if value != "" && !seen[value] {
+			seen[value] = true
+			out = append(out, value)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func newChannelsCmd() *cobra.Command {
@@ -318,8 +453,8 @@ func newAuthCmd() *cobra.Command {
 			if err := core.SaveConfig(cfg); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "logged out")
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "logged out")
+			return err
 		},
 	})
 	return cmd
@@ -327,8 +462,8 @@ func newAuthCmd() *cobra.Command {
 
 func newAPICmd() *cobra.Command {
 	var params, data, paramsFile, dataFile, jq, contentType, confirmHash string
-	var dryRun, pageAll, paramsStdin, dataStdin, confirm, yes, unsafeRawWrite bool
-	var pageLimit, pageDelay, maxRecords, resumePage int
+	var dryRun, paramsStdin, dataStdin, confirm, yes, unsafeRawWrite bool
+	var pagination paginationFlags
 	cmd := &cobra.Command{
 		Use:   "api <METHOD> <PATH>",
 		Short: "Call any CaptainBI OpenAPI endpoint",
@@ -369,7 +504,7 @@ func newAPICmd() *cobra.Command {
 				}
 			}
 			req := client.Request{Method: methodName, Path: args[1], Query: query, Body: body, ContentType: m.ContentType}
-			return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage, confirm: confirm, yes: yes, confirmHash: confirmHash})
+			return runRequest(cmd, m, req, pagination.apply(requestOptions{dryRun: dryRun, jq: jq, confirm: confirm, yes: yes, confirmHash: confirmHash}))
 		},
 	}
 	cmd.Flags().StringVar(&params, "params", "", "query parameters JSON; supports - for stdin")
@@ -385,11 +520,7 @@ func newAPICmd() *cobra.Command {
 	cmd.Flags().BoolVar(&unsafeRawWrite, "unsafe-raw-write", false, "allow an unknown non-GET raw API write after preview")
 	cmd.Flags().StringVar(&contentType, "content-type", "", "request content type override for unknown raw APIs")
 	cmd.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
-	cmd.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
-	cmd.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
-	cmd.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
-	cmd.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
-	cmd.Flags().IntVar(&resumePage, "resume-from-page", 1, "start page for --page-all resume")
+	addPaginationFlags(cmd, &pagination)
 	return cmd
 }
 
@@ -514,8 +645,8 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 		for _, method := range service.Methods {
 			m := method
 			var params, data, paramsFile, dataFile, jq, confirmHash string
-			var dryRun, confirm, yes, pageAll, paramsStdin, dataStdin bool
-			var pageLimit, pageDelay, maxRecords, resumePage int
+			var dryRun, confirm, yes, paramsStdin, dataStdin bool
+			var pagination paginationFlags
 			endpointCmd := &cobra.Command{
 				Use:   m.CommandName,
 				Short: m.Summary,
@@ -525,7 +656,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 						return err
 					}
 					req := client.Request{Method: m.HTTPMethod, Path: m.FullPath, Query: query, Body: body, ContentType: m.ContentType}
-					return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage, confirm: confirm, yes: yes, confirmHash: confirmHash})
+					return runRequest(cmd, m, req, pagination.apply(requestOptions{dryRun: dryRun, jq: jq, confirm: confirm, yes: yes, confirmHash: confirmHash}))
 				},
 			}
 			for _, p := range m.Params {
@@ -548,11 +679,7 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 			endpointCmd.Flags().StringVar(&confirmHash, "confirm-request", "", "confirm the exact request hash produced by --dry-run")
 			endpointCmd.Flags().BoolVar(&yes, "yes", false, "skip prompt for write_safe commands")
 			endpointCmd.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
-			endpointCmd.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
-			endpointCmd.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
-			endpointCmd.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
-			endpointCmd.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
-			endpointCmd.Flags().IntVar(&resumePage, "resume-from-page", 1, "start page for --page-all resume")
+			addPaginationFlags(endpointCmd, &pagination)
 			svcCmd.AddCommand(endpointCmd)
 		}
 		root.AddCommand(svcCmd)
@@ -562,9 +689,9 @@ func registerServiceCommands(root *cobra.Command, reg *registry.Registry) {
 func registerShortcuts(root *cobra.Command) {
 	shortcut := func(use, short, domainRef, example string, configure func(*cobra.Command, map[string]*string)) *cobra.Command {
 		values := map[string]*string{}
-		var dryRun, pageAll bool
+		var dryRun bool
 		var jq string
-		var pageLimit, pageDelay, maxRecords, resumePage int
+		var pagination paginationFlags
 		c := &cobra.Command{
 			Use:     use,
 			Short:   short,
@@ -583,9 +710,10 @@ func registerShortcuts(root *cobra.Command) {
 					req.Body = map[string]any{}
 				}
 				for _, p := range m.Params {
-					if p.Name == "page" {
+					switch p.Name {
+					case "page":
 						setRequestParam(&req, m, p.Name, 1)
-					} else if p.Name == "rows" {
+					case "rows":
 						setRequestParam(&req, m, p.Name, 100)
 					}
 				}
@@ -605,6 +733,9 @@ func registerShortcuts(root *cobra.Command) {
 						setRequestParam(&req, m, name, value)
 					}
 				}
+				if pagination.rangeStart != "" && pagination.rangeEnd != "" && requestParam(req, m, "report_date") == "" {
+					setRequestParam(&req, m, "report_date", pagination.rangeStart)
+				}
 				for _, p := range m.Params {
 					if (p.Location == "query" || p.Location == "form") && p.Required && requestParam(req, m, p.Name) == "" {
 						return typedH("business", "required shortcut flag is missing for "+p.Name, "pass the required shortcut flag shown in --help")
@@ -615,16 +746,12 @@ func registerShortcuts(root *cobra.Command) {
 						return err
 					}
 				}
-				return runRequest(cmd, m, req, requestOptions{dryRun: dryRun, jq: jq, pageAll: pageAll, pageLimit: pageLimit, pageDelay: time.Duration(pageDelay) * time.Millisecond, maxRecords: maxRecords, resumePage: resumePage})
+				return runRequest(cmd, m, req, pagination.apply(requestOptions{dryRun: dryRun, jq: jq}))
 			},
 		}
 		c.Flags().BoolVar(&dryRun, "dry-run", false, "print request without sending it")
 		c.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
-		c.Flags().BoolVar(&pageAll, "page-all", false, "automatically fetch all pages for page_rows endpoints")
-		c.Flags().IntVar(&pageLimit, "page-limit", 10, "max pages to fetch with --page-all; 0 means unlimited")
-		c.Flags().IntVar(&pageDelay, "page-delay", 3000, "delay in milliseconds between pages")
-		c.Flags().IntVar(&maxRecords, "max-records", 0, "stop page-all after collecting this many records")
-		c.Flags().IntVar(&resumePage, "resume-from-page", 1, "start page for --page-all resume")
+		addPaginationFlags(c, &pagination)
 		if configure != nil {
 			configure(c, values)
 		}
@@ -698,6 +825,8 @@ func collectEndpointInput(cmd *cobra.Command, m registry.Method, extraParams, da
 		}
 	}
 	hasExplicitBody := data != "" || dataFile != "" || dataStdin
+	rangeStart, _ := cmd.Flags().GetString("range-start")
+	rangeEnd, _ := cmd.Flags().GetString("range-end")
 	for _, p := range m.Params {
 		if p.Location != "query" && p.Location != "form" {
 			continue
@@ -706,6 +835,9 @@ func collectEndpointInput(cmd *cobra.Command, m registry.Method, extraParams, da
 		changed := cmd.Flags().Changed(p.Flag)
 		if v == "" && !changed {
 			v = defaultString(p.Default)
+		}
+		if p.Name == "report_date" && v == "" && rangeStart != "" && rangeEnd != "" {
+			v = rangeStart
 		}
 		if p.Required && v == "" && bodyMap[p.Name] == nil {
 			return nil, nil, typedH("business", fmt.Sprintf("required flag --%s is missing", p.Flag), "run the command with --help and pass all required flags")
@@ -780,11 +912,18 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 	if m.RiskLevel != "read" && (globals.channel == "all" || len(targets) > 1) {
 		return typedH("confirmation_required", "write operations do not support --channel all or multi-channel files", "write to one configured channel alias at a time and approve each payload separately")
 	}
+	allowlistRequired := m.RiskLevel == "write_dangerous" || m.RiskLevel == "sync_trigger"
+	allowlisted := !allowlistRequired || writeAllowed(cfg, m)
 	if opts.dryRun {
 		views := []map[string]any{}
 		for _, target := range targets {
 			view := dryRunView(req, m, target.ID, target.Alias)
 			if m.RiskLevel != "read" {
+				view["policy"] = map[string]any{
+					"allowlist_required": allowlistRequired,
+					"allowlisted":        allowlisted,
+					"allow_command":      writeReference(m),
+				}
 				record, err := approval.Issue(approvalPayload(req, m, target.ID))
 				if err != nil {
 					return typedH("business", "could not store write preview approval: "+err.Error(), "make CAPTAINBI_CONFIG_DIR writable, then rerun --dry-run")
@@ -802,6 +941,9 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 			return writeValue(cmd, views[0], nil, opts.jq)
 		}
 		return writeValue(cmd, views, nil, opts.jq)
+	}
+	if agentMode() && allowlistRequired && !allowlisted {
+		return internalerrs.New("confirmation_required", internalerrs.WriteNotAllowlisted, "Agent write command is not allowlisted: "+writeReference(m), internalerrs.Hint(internalerrs.WriteNotAllowlisted))
 	}
 	if err := enforceRisk(cmd, m, req, targets[0], opts); err != nil {
 		return err
@@ -824,12 +966,33 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 		return err
 	}
 	if globals.verbose || globals.debug {
-		fmt.Fprintf(cmd.ErrOrStderr(), "request method=%s path=%s channel=%s rate_limit_wait_ms=%d\n", req.Method, req.Path, security.RedactValue(req.OpenChannelID), c.LastRateLimitWait().Milliseconds())
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "request method=%s path=%s channel=%s rate_limit_wait_ms=%d\n", req.Method, req.Path, security.RedactValue(req.OpenChannelID), c.LastRateLimitWait().Milliseconds()); err != nil {
+			return err
+		}
 	}
 	if wait := c.LastRateLimitWait(); wait > 0 {
 		resp["rate_limit_wait_ms"] = wait.Milliseconds()
 	}
 	return writeValue(cmd, resp, m.TableColumns, opts.jq)
+}
+
+func writeAllowed(cfg *core.Config, m registry.Method) bool {
+	ref := writeReference(m)
+	for _, allowed := range cfg.WriteAllowlist {
+		if allowed == ref || allowed == m.FullPath {
+			return true
+		}
+	}
+	return false
+}
+
+func writeReference(m registry.Method) string {
+	if reg, err := registry.Load(); err == nil {
+		if ref, ok := reg.ReferenceFor(m); ok {
+			return ref
+		}
+	}
+	return m.FullPath
 }
 
 func dryRunView(req client.Request, m registry.Method, openChannelID, alias string) map[string]any {
@@ -844,119 +1007,6 @@ func dryRunView(req client.Request, m registry.Method, openChannelID, alias stri
 		"channel":      alias,
 		"headers":      map[string]any{"authorization": security.RedactValue("bearer token"), "OpenChannelId": security.RedactValue(openChannelID)},
 	}
-}
-
-func executeRequest(ctx context.Context, c *client.Client, m registry.Method, req client.Request, opts requestOptions) (map[string]any, error) {
-	if !opts.pageAll || m.Pagination.Type != "page_rows" {
-		return c.Do(ctx, req)
-	}
-	if req.Query == nil {
-		req.Query = map[string]string{}
-	}
-	rowsText := requestParam(req, m, "rows")
-	if rowsText == "" {
-		rowsText = "100"
-		setRequestParam(&req, m, "rows", 100)
-	}
-	rows, _ := strconv.Atoi(rowsText)
-	if rows <= 0 {
-		rows = 100
-	}
-	limit := opts.pageLimit
-	if limit < 0 {
-		limit = 10
-	}
-	delay := opts.pageDelay
-	if delay <= 0 {
-		delay = 3 * time.Second
-	}
-	startPage := opts.resumePage
-	if startPage <= 0 {
-		startPage = 1
-	}
-	all := []any{}
-	var envelope map[string]any
-	pagesFetched := 0
-	pagesFailed := 0
-	failedAtPage := 0
-	partialError := ""
-	hasMore := false
-	nextPage := 0
-	for page := startPage; ; page++ {
-		if limit > 0 && pagesFetched >= limit {
-			hasMore = true
-			nextPage = page
-			break
-		}
-		setRequestParam(&req, m, "page", page)
-		resp, err := c.Do(ctx, req)
-		if err != nil {
-			pagesFailed++
-			failedAtPage = page
-			partialError = err.Error()
-			if len(all) == 0 {
-				return nil, err
-			}
-			break
-		}
-		pagesFetched++
-		if envelope == nil {
-			envelope = resp
-		}
-		data, _ := resp["data"].([]any)
-		if raw, ok := resp["data"]; ok && raw != nil && data == nil {
-			err := typedH("business", "page_rows response data must be an array", "check the endpoint response contract before using --page-all")
-			if len(all) == 0 {
-				return nil, err
-			}
-			pagesFailed++
-			failedAtPage = page
-			partialError = err.Error()
-			break
-		}
-		all = append(all, data...)
-		if opts.maxRecords > 0 && len(all) >= opts.maxRecords {
-			all = all[:opts.maxRecords]
-			hasMore = len(data) >= rows
-			if hasMore {
-				nextPage = page + 1
-			}
-			break
-		}
-		maxResult := intFrom(resp[m.Pagination.TotalField])
-		if len(data) < rows {
-			break
-		}
-		if maxResult > 0 && len(all) >= maxResult {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(delay):
-		}
-	}
-	if envelope == nil {
-		envelope = map[string]any{}
-	}
-	envelope["data"] = all
-	envelope["page_all"] = true
-	envelope["fetched_rows"] = len(all)
-	envelope["pages_fetched"] = pagesFetched
-	envelope["pages_failed"] = pagesFailed
-	envelope["partial"] = pagesFailed > 0
-	envelope["has_more"] = hasMore
-	if nextPage > 0 {
-		envelope["next_page"] = nextPage
-	}
-	if failedAtPage > 0 {
-		envelope["failed_at_page"] = failedAtPage
-		envelope["partial_error"] = security.RedactString(partialError)
-		envelope["has_more"] = true
-		envelope["next_page"] = failedAtPage
-	}
-	envelope["resume_from_page"] = startPage
-	return envelope, nil
 }
 
 func setRequestParam(req *client.Request, m registry.Method, name string, value any) {
@@ -1201,7 +1251,9 @@ func enforceRisk(cmd *cobra.Command, m registry.Method, req client.Request, targ
 		if opts.yes {
 			return nil
 		}
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s is a write operation; continue? [y/N] ", m.CommandName)
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s is a write operation; continue? [y/N] ", m.CommandName); err != nil {
+			return err
+		}
 		line, _ := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 		if strings.TrimSpace(strings.ToLower(line)) != "y" {
 			return typedH("business", "operation cancelled", "rerun with --yes after confirming the write operation")
@@ -1212,7 +1264,9 @@ func enforceRisk(cmd *cobra.Command, m registry.Method, req client.Request, targ
 		return typedH("confirmation_required", "this operation requires --confirm; use --dry-run to preview", "add --confirm only after the user explicitly approves this write or sync operation")
 	}
 	if m.RiskLevel == "sync_trigger" {
-		fmt.Fprintln(cmd.ErrOrStderr(), "warning: this operation may trigger external CaptainBI/Amazon synchronization")
+		if _, err := fmt.Fprintln(cmd.ErrOrStderr(), "warning: this operation may trigger external CaptainBI/Amazon synchronization"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1455,7 +1509,7 @@ func writeError(w io.Writer, err error, code int) {
 		})
 		return
 	}
-	fmt.Fprintln(w, security.RedactString(err.Error()))
+	_, _ = fmt.Fprintln(w, security.RedactString(err.Error()))
 }
 
 func commandNames(cmd *cobra.Command) []string {

@@ -69,6 +69,7 @@ func Verify(payload Payload, provided string) error {
 	if err != nil {
 		return err
 	}
+	// #nosec G304 -- expected is a locally computed SHA-256 hex digest, never user-supplied path data.
 	b, err := os.ReadFile(filepath.Join(dir, expected+".json"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

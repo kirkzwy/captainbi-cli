@@ -116,6 +116,7 @@ func readSafeInputFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, internalerrs.New("business", internalerrs.InputPathUnsafe, "unsafe input file: "+err.Error(), internalerrs.Hint(internalerrs.InputPathUnsafe))
 	}
+	// #nosec G304 -- SafeInputPath proves the resolved regular file remains under cwd.
 	return os.ReadFile(resolved)
 }
 
@@ -127,20 +128,8 @@ func channelResult(target channelTarget, resp map[string]any, err error) map[str
 	}
 	if resp != nil {
 		out["rows"] = rowCount(resp)
-		if v, ok := resp["pages_fetched"]; ok {
-			out["pages_fetched"] = v
-		}
-		if v, ok := resp["pages_failed"]; ok {
-			out["pages_failed"] = v
-		}
-		if v, ok := resp["partial"]; ok {
-			out["partial"] = v
-		}
-		if v, ok := resp["has_more"]; ok {
-			out["has_more"] = v
-		}
-		if v, ok := resp["next_page"]; ok {
-			out["next_page"] = v
+		for _, key := range paginationMetaKeys {
+			copyMetaKey(out, resp, key)
 		}
 		if v, ok := resp["rate_limit_wait_ms"]; ok {
 			out["rate_limit_wait_ms"] = v
@@ -168,7 +157,7 @@ func writeAudit(m registry.Method, target channelTarget, callErr error, requestH
 	if err != nil {
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	row := map[string]any{
 		"time":            time.Now().Format(time.RFC3339),
 		"command":         m.CommandName,
@@ -258,11 +247,9 @@ func metaForValue(value any) map[string]any {
 		meta["output_file"] = globals.outputFile
 	}
 	if m, ok := value.(map[string]any); ok {
-		copyMetaKey(meta, m, "pages_fetched")
-		copyMetaKey(meta, m, "pages_failed")
-		copyMetaKey(meta, m, "partial")
-		copyMetaKey(meta, m, "has_more")
-		copyMetaKey(meta, m, "next_page")
+		for _, key := range paginationMetaKeys {
+			copyMetaKey(meta, m, key)
+		}
 		copyMetaKey(meta, m, "rate_limit_wait_ms")
 		copyMetaKey(meta, m, "channel")
 		if channels, ok := m["channels"].([]map[string]any); ok {
@@ -280,11 +267,18 @@ func copyMetaKey(meta, src map[string]any, key string) {
 	}
 }
 
+var paginationMetaKeys = []string{
+	"pages_fetched", "pages_failed", "partial", "has_more",
+	"next_window", "next_page", "next_offset",
+	"failed_at_window", "failed_at_page",
+	"windows_total", "windows_started", "windows_completed", "range_type",
+}
+
 func hintsForValue(value any) []string {
 	hints := []string{}
 	if m, ok := value.(map[string]any); ok {
 		if partial, _ := m["partial"].(bool); partial {
-			hints = append(hints, "result is partial; use failed_at_page/resume_from_page with --resume-from-page to continue")
+			hints = append(hints, "result is partial; resume with next_window, next_page and next_offset using the matching --resume-* flags")
 		}
 		if outputFile := fmt.Sprint(m["output_file"]); outputFile != "" && outputFile != "<nil>" {
 			hints = append(hints, "data was written to output_file; read that file for full rows")
@@ -347,12 +341,9 @@ func summarizeValue(value any) map[string]any {
 		out["channels"] = channels
 	}
 	if m, ok := value.(map[string]any); ok {
-		copyMetaKey(out, m, "pages_fetched")
-		copyMetaKey(out, m, "pages_failed")
-		copyMetaKey(out, m, "partial")
-		copyMetaKey(out, m, "has_more")
-		copyMetaKey(out, m, "next_page")
-		copyMetaKey(out, m, "failed_at_page")
+		for _, key := range paginationMetaKeys {
+			copyMetaKey(out, m, key)
+		}
 		copyMetaKey(out, m, "rate_limit_wait_ms")
 		copyMetaKey(out, m, "page_all")
 		copyMetaKey(out, m, "output_file")

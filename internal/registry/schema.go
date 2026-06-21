@@ -18,6 +18,8 @@ type Pagination struct {
 	Type       string `json:"type"`
 	MaxRows    int    `json:"maxRows,omitempty"`
 	TotalField string `json:"totalField,omitempty"`
+	RangeType  string `json:"rangeType,omitempty"`
+	WindowDays int    `json:"windowDays,omitempty"`
 }
 
 type Method struct {
@@ -69,4 +71,15 @@ func (r Registry) Find(ref string) (Method, bool) {
 		}
 	}
 	return Method{}, false
+}
+
+func (r Registry) ReferenceFor(target Method) (string, bool) {
+	for _, svc := range r.Services {
+		for _, method := range svc.Methods {
+			if method.HTTPMethod == target.HTTPMethod && method.FullPath == target.FullPath {
+				return svc.Domain + "." + method.CommandName, true
+			}
+		}
+	}
+	return "", false
 }

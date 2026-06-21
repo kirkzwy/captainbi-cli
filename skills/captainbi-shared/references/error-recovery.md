@@ -2,7 +2,7 @@
 
 Read `error.kind`, `error.subtype`, `error.hint`, `error.retryable`, `error.retry_after_ms`, `error.api_code`, `error.api_msg`, and `error.request_id`.
 
-For pagination, read `meta.has_more` and `meta.next_page`. If `has_more=true`, continue with `--resume-from-page <next_page>` when the endpoint supports `page_rows`.
+For pagination and date ranges, read `meta.has_more`, `meta.next_window`, `meta.next_page`, and `meta.next_offset`. If `has_more=true`, reuse the same filters with the matching `--resume-from-window`, `--resume-from-page`, and `--resume-offset` values.
 
 Common recovery:
 
@@ -23,5 +23,6 @@ Common recovery:
 - `WRITE_CONFIRMATION_EXPIRED`: the 15-minute preview expired; generate a new dry-run.
 - `WRITE_CONFIRMATION_REPLAY`: the hash was already consumed or is missing; inspect the previous call before retrying.
 - `WRITE_MULTI_CHANNEL_FORBIDDEN`: select one channel alias and approve each write separately.
+- `WRITE_NOT_ALLOWLISTED`: review the risk and exact command, then ask the user before adding that `domain.command` with `cbi config write-allowlist add`.
 
 CaptainBI OAuth errors may use `error/error_description`; business APIs may use `code/msg`. The CLI maps both to `api_code/api_msg`.

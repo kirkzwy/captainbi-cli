@@ -158,23 +158,34 @@ func writeTable(w io.Writer, rows []map[string]any, columns []string) error {
 			}
 		}
 	}
-	printRow := func(vals []string) {
+	printRow := func(vals []string) error {
 		for i, v := range vals {
 			if i > 0 {
-				fmt.Fprint(w, "  ")
+				if _, err := fmt.Fprint(w, "  "); err != nil {
+					return err
+				}
 			}
-			fmt.Fprintf(w, "%-*s", widths[i], v)
+			if _, err := fmt.Fprintf(w, "%-*s", widths[i], v); err != nil {
+				return err
+			}
 		}
-		fmt.Fprintln(w)
+		_, err := fmt.Fprintln(w)
+		return err
 	}
-	printRow(columns)
+	if err := printRow(columns); err != nil {
+		return err
+	}
 	sep := make([]string, len(columns))
 	for i := range columns {
 		sep[i] = strings.Repeat("-", widths[i])
 	}
-	printRow(sep)
+	if err := printRow(sep); err != nil {
+		return err
+	}
 	for _, line := range lines {
-		printRow(line)
+		if err := printRow(line); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -27,6 +27,7 @@ func TestGetTokenSendsScopeAll(t *testing.T) {
 			t.Fatal(err)
 		}
 		gotScope = r.Form.Get("scope")
+		// #nosec G117 -- the response contains a fixed fake token for the local test server.
 		_ = json.NewEncoder(w).Encode(TokenResponse{
 			AccessToken: "access-token",
 			TokenType:   "bearer",
@@ -56,6 +57,7 @@ func TestGetTokenUsesLockAndFreshCache(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
 		time.Sleep(150 * time.Millisecond)
+		// #nosec G117 -- the response contains a fixed fake token for the local test server.
 		_ = json.NewEncoder(w).Encode(TokenResponse{
 			AccessToken: "access-token",
 			TokenType:   "bearer",

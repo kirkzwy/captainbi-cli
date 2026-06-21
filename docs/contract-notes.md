@@ -192,6 +192,23 @@ v0.3.0 自动验证已经覆盖：
 - `registry update` 从项目主分支下载由官方 OpenAPI 生成的 metadata，经兼容性与风险不可降级校验后原子安装到私有配置目录；`registry reset` 可恢复内置版本。
 - 损坏的托管覆盖会回退内置 Registry 并由 `doctor local` 返回 warning；显式 `CAPTAINBI_REGISTRY_FILE` 无效时直接失败，避免静默使用错误配置。
 - `--params-file`、`--data-file`、`--channel-file` 仅允许 cwd 内相对普通文件，并阻止绝对路径、父目录穿越和逃逸符号链接；绝对路径内容改走 stdin。
+
+## 2026-06-21 复合分页与范围批次
+
+- Registry 在 `page_rows` 外增加 `rangeType`：34 个接口使用 `modified_time_window`，16 个接口使用 `report_date`，15 个接口无外层范围。
+- `--page-all` 对修改时间自动拆成不重叠的 31 天窗口；`--range-start/--range-end` 支持匹配格式的日范围 `YYYYMMDD` 和月范围 `YYYYMM`。
+- partial、页数限制和 `--max-records` 截断统一返回 `next_window/next_page/next_offset`；对应 `--resume-from-window/--resume-from-page/--resume-offset` 可无损续拉。
+- 修正旧逻辑在页中达到 `--max-records` 后直接跳到下一页、可能漏掉当前页剩余记录的问题。
+
+真实只读验证：40 天商品范围被拆为 2 个窗口、共 3 页、105 行，`partial=false`；两天财务日报生成 2 个 report_date 批次，`partial=false`。原始数据仅保存在本机 `/tmp`，文档不记录店铺或商品明细。
+
+## 2026-06-21 Agent 危险写入白名单与 429 退避
+
+- Agent 的 `write_dangerous`/`sync_trigger` 除一次性审批 hash 外，还必须通过 `config write-allowlist` 显式放行注册命令；未放行时不会消费 hash。
+- dry-run 返回 `policy.allowlist_required/allowlisted/allow_command`，便于用户在批准前检查策略状态。
+- 429 mock 已验证优先遵循 `Retry-After`；无 header 时使用 5/15/45 秒基础退避加正负 20% jitter，服务端 Retry-After 上限为 5 分钟。
+
+发布前本地矩阵：`go test -race ./...` 通过，总覆盖率 53.3%（CI 门槛提升到 50%）；golangci-lint v2.12.2 为 0 issue；govulncheck v1.1.4 未发现已知漏洞；darwin/linux/windows 的 amd64/arm64 六平台构建、8 个 Skills 校验、npm tarball 和 doctor smoke 均通过。
 - 使用本机真实凭证和 alias 完成 Codex 只读回归：店铺、商品、广告活动日报、FBA 货件、店铺财务月报全部 `ok=true`。
 - 广告日报首次使用 GET multipart 时返回 `report date 字段是必须的`；改为 query 后成功，证明 28 个 GET 文档 body 字段必须在传输层转为 query。
 - raw `--params` 的大整数已改用 `json.Decoder.UseNumber()`，避免日期被格式化为科学计数法。

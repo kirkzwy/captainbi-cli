@@ -10,7 +10,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
+
+var sourceHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 type spec struct {
 	Paths map[string]map[string]operation `json:"paths"`
@@ -94,6 +97,8 @@ type paging struct {
 	Type       string `json:"type"`
 	MaxRows    int    `json:"maxRows,omitempty"`
 	TotalField string `json:"totalField,omitempty"`
+	RangeType  string `json:"rangeType,omitempty"`
+	WindowDays int    `json:"windowDays,omitempty"`
 }
 
 func main() {
@@ -109,21 +114,37 @@ func main() {
 	reg := buildRegistry(*source, s)
 	b, err := json.MarshalIndent(reg, "", "  ")
 	must(err)
+	// #nosec G302,G306 -- generated Registry and endpoint documentation are public repository artifacts.
 	must(os.WriteFile(*out, append(b, '\n'), 0o644))
+	// #nosec G302 -- generated Registry metadata is a public repository artifact.
 	must(os.Chmod(*out, 0o644))
+	// #nosec G306 -- generated endpoint documentation is a public repository artifact.
 	must(os.WriteFile(*docs, []byte(renderDocs(reg)), 0o644))
+	// #nosec G302 -- generated endpoint documentation is a public repository artifact.
 	must(os.Chmod(*docs, 0o644))
 }
 
 func readSource(source string) ([]byte, error) {
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		resp, err := http.Get(source)
+		resp, err := sourceHTTPClient.Get(source)
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
-		return io.ReadAll(resp.Body)
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("GET %s returned HTTP %d", source, resp.StatusCode)
+		}
+		const maxSpecBytes = 32 << 20
+		body, err := io.ReadAll(io.LimitReader(resp.Body, maxSpecBytes+1))
+		if err != nil {
+			return nil, err
+		}
+		if len(body) > maxSpecBytes {
+			return nil, fmt.Errorf("OpenAPI response exceeds %d bytes", maxSpecBytes)
+		}
+		return body, nil
 	}
+	// #nosec G304 -- local source is an explicit developer CLI argument, never Agent-derived API data.
 	return os.ReadFile(source)
 }
 
@@ -335,16 +356,20 @@ func paginationFor(params []param) paging {
 	for _, p := range params {
 		names[p.Name] = true
 	}
+	result := paging{Type: "none"}
 	if names["page"] && names["rows"] {
-		return paging{Type: "page_rows", MaxRows: 100, TotalField: "max_result"}
+		result = paging{Type: "page_rows", MaxRows: 100, TotalField: "max_result"}
 	}
 	if names["start_modified_time"] || names["end_modified_time"] || names["start_report_time"] || names["end_report_time"] {
-		return paging{Type: "modified_time_window"}
+		result.RangeType = "modified_time_window"
+		result.WindowDays = 31
+		return result
 	}
 	if names["report_date"] {
-		return paging{Type: "report_date"}
+		result.RangeType = "report_date"
+		return result
 	}
-	return paging{Type: "none"}
+	return result
 }
 
 func tableColumnsFor(domain, path string) []string {
@@ -593,10 +618,20 @@ func renderDocs(reg registry) string {
 	b.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, svc := range reg.Services {
 		for _, m := range svc.Methods {
-			fmt.Fprintf(&b, "| %s | `cbi %s %s` | %s | `%s` | %s | %s | %s | %s | %s |\n", svc.Domain, svc.Domain, m.CommandName, m.HTTPMethod, m.FullPath, emptyDash(m.ContentType), requiredInputs(m), m.RiskLevel, m.Pagination.Type, strings.ReplaceAll(m.Summary, "|", "\\|"))
+			fmt.Fprintf(&b, "| %s | `cbi %s %s` | %s | `%s` | %s | %s | %s | %s | %s |\n", svc.Domain, svc.Domain, m.CommandName, m.HTTPMethod, m.FullPath, emptyDash(m.ContentType), requiredInputs(m), m.RiskLevel, paginationLabel(m.Pagination), strings.ReplaceAll(m.Summary, "|", "\\|"))
 		}
 	}
 	return b.String()
+}
+
+func paginationLabel(value paging) string {
+	if value.RangeType == "" {
+		return value.Type
+	}
+	if value.Type == "none" {
+		return value.RangeType
+	}
+	return value.Type + "+" + value.RangeType
 }
 
 func requiredInputs(m method) string {

@@ -3,10 +3,12 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -33,6 +35,8 @@ type Client struct {
 	limiter    *rate.Limiter
 	auth       AuthFunc
 	lastWait   time.Duration
+	wait       func(context.Context, time.Duration) error
+	jitter     func(time.Duration) time.Duration
 }
 
 type Request struct {
@@ -54,6 +58,8 @@ func New(cfg *core.Config, auth AuthFunc) *Client {
 		httpClient: &http.Client{Timeout: 60 * time.Second},
 		limiter:    rate.NewLimiter(rate.Every(time.Minute/time.Duration(rateLimit)), 1),
 		auth:       auth,
+		wait:       waitContext,
+		jitter:     jitterDuration,
 	}
 }
 
@@ -105,12 +111,11 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 	var lastErr error
 	for attempt := 0; attempt < 4; attempt++ {
 		if attempt > 0 {
-			delay := []time.Duration{5 * time.Second, 15 * time.Second, 45 * time.Second}[attempt-1]
-			select {
-			case <-ctx.Done():
-				return nil, &Error{Kind: "network", Err: ctx.Err()}
-			case <-time.After(delay):
+			delay := retryDelay(attempt, lastErr, c.jitter)
+			if err := c.wait(ctx, delay); err != nil {
+				return nil, &Error{Kind: "network", Err: err}
 			}
+			c.lastWait += delay
 		}
 		var body io.Reader
 		if bodyBytes != nil {
@@ -132,6 +137,10 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 			return nil, &Error{Kind: "network", Err: err}
 		}
 		result, err := decodeResponse(resp)
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			lastErr = &StatusError{StatusCode: resp.StatusCode, Body: result, Retryable: true, RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After"))}
 			continue
@@ -148,10 +157,48 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		return result, nil
 	}
 	retryAfter := time.Duration(0)
-	if se, ok := lastErr.(*StatusError); ok {
+	var se *StatusError
+	if errors.As(lastErr, &se) {
 		retryAfter = se.RetryAfter
 	}
 	return nil, &Error{Kind: "rate_limit", Err: lastErr, Retryable: true, RetryAfter: retryAfter}
+}
+
+func retryDelay(attempt int, lastErr error, jitter func(time.Duration) time.Duration) time.Duration {
+	var statusErr *StatusError
+	if errors.As(lastErr, &statusErr) && statusErr.RetryAfter > 0 {
+		return min(statusErr.RetryAfter, 5*time.Minute)
+	}
+	var base time.Duration
+	switch attempt {
+	case 1:
+		base = 5 * time.Second
+	case 2:
+		base = 15 * time.Second
+	default:
+		base = 45 * time.Second
+	}
+	return jitter(base)
+}
+
+func jitterDuration(base time.Duration) time.Duration {
+	delta := base / 5
+	value, err := rand.Int(rand.Reader, big.NewInt(int64(2*delta)+1))
+	if err != nil {
+		return base
+	}
+	return base - delta + time.Duration(value.Int64())
+}
+
+func waitContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func encodeBody(body any, requestedContentType string) ([]byte, string, error) {
@@ -243,6 +290,7 @@ func (c *Client) waitCrossProcess(ctx context.Context) (time.Duration, error) {
 	defer release()
 
 	var next time.Time
+	// #nosec G304 -- stateFile is fixed under the private CaptainBI config directory.
 	if b, err := os.ReadFile(stateFile); err == nil {
 		if n, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64); err == nil && n > 0 {
 			next = time.Unix(0, n)
@@ -277,6 +325,7 @@ func RateLimitStatus(cfg *core.Config) (map[string]any, error) {
 	if cfg.RateLimit <= 0 {
 		out["rate_limit_per_minute"] = core.DefaultRate
 	}
+	// #nosec G304 -- stateFile is fixed under the private CaptainBI config directory.
 	if b, err := os.ReadFile(stateFile); err == nil {
 		if n, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64); err == nil && n > 0 {
 			next := time.Unix(0, n)
@@ -295,7 +344,6 @@ func RateLimitStatus(cfg *core.Config) (map[string]any, error) {
 }
 
 func decodeResponse(resp *http.Response) (map[string]any, error) {
-	defer resp.Body.Close()
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
