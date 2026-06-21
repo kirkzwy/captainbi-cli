@@ -174,11 +174,13 @@ v0.3.0 自动验证已经覆盖：
 
 真实写入验收采用三类代表接口，不自动触碰 FBM 发货、成本或运营费用：
 
-- `write_safe`：设置测试商品运营人员，回读后恢复。
+- `write_safe`：优先重复设置当前店铺模式做幂等验收；只有商品已有可恢复运营人员时才使用运营人员变更。
 - `write_dangerous`：设置测试商品分组，回读后恢复。
 - `sync_trigger`：同步允许重复同步的测试 FBA 货件。
 
 使用 `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore` 分阶段执行。真实写入结果、回读和恢复在取得本地测试 fixture 与用户逐项批准前仍属于待验证项。
+
+本次真实只读 fixture 显示店铺当前为店铺模式，55 个商品明细的运营人员均为 0；因此默认 `CAPTAINBI_WRITE_SAFE_KIND=shop-mode`，避免执行无法证明可恢复的运营人员变更。商品中存在多个非零分组，可选择不同分组做变更/回滚；货件中存在 CLOSED 状态候选。
 
 ## 2026-06-21 Codex v0.3.0 预发布回归
 
