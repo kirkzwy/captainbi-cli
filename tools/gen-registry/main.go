@@ -486,6 +486,11 @@ func requiredSet(schema map[string]any, overrides []string) map[string]bool {
 
 func applyBodyOverrides(path string, schema map[string]any) {
 	properties, _ := schema["properties"].(map[string]any)
+	if path == "/v1/open_goods/set_goods_operate_user" || path == "/v1/open_goods/set_goods_group" {
+		if goodsID, ok := properties["goods_id"].(map[string]any); ok {
+			goodsID["description"] = "商品扩展数据 goods items 返回的 amazon_goods_id"
+		}
+	}
 	setNestedRequired := func(property string, fields []string) {
 		container, _ := properties[property].(map[string]any)
 		if len(container) == 0 {

@@ -651,7 +651,7 @@
               "location": "form",
               "type": "string",
               "required": true,
-              "description": "商品id",
+              "description": "商品扩展数据 goods items 返回的 amazon_goods_id",
               "format": "string"
             },
             {
@@ -674,7 +674,7 @@
           "requestBodySchema": {
             "properties": {
               "goods_id": {
-                "description": "商品id",
+                "description": "商品扩展数据 goods items 返回的 amazon_goods_id",
                 "type": "string"
               },
               "group_id": {
@@ -742,7 +742,7 @@
               "location": "form",
               "type": "integer",
               "required": true,
-              "description": "商品id",
+              "description": "商品扩展数据 goods items 返回的 amazon_goods_id",
               "format": "int"
             },
             {
@@ -765,7 +765,7 @@
           "requestBodySchema": {
             "properties": {
               "goods_id": {
-                "description": "商品id",
+                "description": "商品扩展数据 goods items 返回的 amazon_goods_id",
                 "type": "integer"
               },
               "operation_user_admin_id": {

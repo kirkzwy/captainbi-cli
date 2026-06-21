@@ -65,6 +65,24 @@ func TestLoadRegistry(t *testing.T) {
 	if requestBodies != 36 || getBodySchemas != 28 || posts != 8 {
 		t.Fatalf("registry contract counts: requestBodies=%d getBodySchemas=%d posts=%d", requestBodies, getBodySchemas, posts)
 	}
+	for _, ref := range []string{"goods.set-group", "goods.set-operate-user"} {
+		method, ok := r.Find(ref)
+		if !ok {
+			t.Fatalf("missing method %s", ref)
+		}
+		found := false
+		for _, param := range method.Params {
+			if param.Name == "goods_id" {
+				found = true
+				if !strings.Contains(param.Description, "amazon_goods_id") {
+					t.Fatalf("%s goods_id description is ambiguous: %q", ref, param.Description)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("%s missing goods_id parameter", ref)
+		}
+	}
 }
 
 func TestRegistryOverrideInstallLoadAndReset(t *testing.T) {

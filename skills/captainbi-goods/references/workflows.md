@@ -39,17 +39,17 @@ Treat missing `max_result` as normal. Trust CLI metadata such as `pages_fetched`
 
 ```bash
 cbi --channel <alias> goods set-operate-user \
-  --goods-id <goods_id> \
+  --goods-id <amazon_goods_id> \
   --operation-user-admin-id <operator_id> \
   --dry-run --machine --format json
 ```
 
-Show the preview to the user. After approval, rerun the unchanged command with `--confirm-request <request_hash>`, then query `goods items` and verify `operation_user_admin_id`. Preserve the old operator ID before changing it when rollback may be needed.
+`--goods-id` is the `amazon_goods_id` returned by `goods items`, not an undocumented local `id` field. Show the preview to the user. After approval, rerun the unchanged command with `--confirm-request <request_hash>`, then query `goods items` and verify `operation_user_admin_id`. Preserve the old operator ID before changing it when rollback may be needed.
 
 ## Set Product Group
 
 ```bash
-cbi goods set-group --goods-id '<goods_id>' --group-id '<group_id>' \
+cbi goods set-group --goods-id '<amazon_goods_id>' --group-id '<group_id>' \
   --dry-run --machine --format json
 ```
 

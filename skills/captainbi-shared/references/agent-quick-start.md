@@ -81,7 +81,7 @@ Agent defaults:
 ```bash
 cbi schema goods.set-operate-user --machine --format json
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> \
+  --goods-id <amazon_goods_id> \
   --operation-user-admin-id <operator_id> \
   --dry-run --machine --format json
 ```
@@ -90,7 +90,7 @@ Stop here. Show the preview to the user. After the user approves the exact body 
 
 ```bash
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> \
+  --goods-id <amazon_goods_id> \
   --operation-user-admin-id <operator_id> \
   --confirm-request <request_hash> \
   --machine --format json

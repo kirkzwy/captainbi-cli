@@ -256,18 +256,18 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 ```bash
 # 1. 仅生成预览
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --goods-id <amazon_goods_id> --operation-user-admin-id <operator_id> \
   --dry-run --machine --format json
 
 # 2. 停下并请用户确认 method、path、channel 和 body
 
 # 3. 请求不变时，使用 data.approval.request_hash 执行
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --goods-id <amazon_goods_id> --operation-user-admin-id <operator_id> \
   --confirm-request <request_hash> --machine --format json
 ```
 
-写入后必须查询受影响资源做回读验证。payload 改变、hash 过期或结果不确定时，重新生成预览，不得重放。
+写入后必须查询受影响资源做回读验证。payload 改变、hash 过期或结果不确定时，重新生成预览，不得重放。商品写入命令的 `--goods-id` 必须使用 `cbi goods items` 返回的 `amazon_goods_id`，不要使用未写入官方 schema 的本地 `id` 字段。
 
 维护者可使用 `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore` 分阶段执行真实写入验收。该脚本需要专用测试对象，且不会自动跨过任何审批节点。
 

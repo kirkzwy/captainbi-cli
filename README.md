@@ -141,18 +141,18 @@ cbi tools export --format openai
 ```bash
 # 1. Preview only
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --goods-id <amazon_goods_id> --operation-user-admin-id <operator_id> \
   --dry-run --machine --format json
 
 # 2. Stop and obtain explicit user approval for the exact preview
 
 # 3. Send the unchanged request with data.approval.request_hash
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> --operation-user-admin-id <operator_id> \
+  --goods-id <amazon_goods_id> --operation-user-admin-id <operator_id> \
   --confirm-request <request_hash> --machine --format json
 ```
 
-After a write, query the affected resource and verify the result. If the payload changes, the hash expires, or the outcome is uncertain, generate a new preview instead of replaying it.
+After a write, query the affected resource and verify the result. If the payload changes, the hash expires, or the outcome is uncertain, generate a new preview instead of replaying it. For goods write commands, `--goods-id` means the `amazon_goods_id` returned by `cbi goods items`; do not use an undocumented local `id` field.
 
 Maintainers can run the staged real-write acceptance with `scripts/smoke/write_guarded.sh prepare|apply|prepare-restore|restore`. It requires dedicated test fixtures and never crosses an approval boundary automatically.
 

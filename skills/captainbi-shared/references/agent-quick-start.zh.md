@@ -81,7 +81,7 @@ Agent 默认规则：
 ```bash
 cbi schema goods.set-operate-user --machine --format json
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> \
+  --goods-id <amazon_goods_id> \
   --operation-user-admin-id <operator_id> \
   --dry-run --machine --format json
 ```
@@ -90,7 +90,7 @@ cbi --channel main goods set-operate-user \
 
 ```bash
 cbi --channel main goods set-operate-user \
-  --goods-id <goods_id> \
+  --goods-id <amazon_goods_id> \
   --operation-user-admin-id <operator_id> \
   --confirm-request <request_hash> \
   --machine --format json
