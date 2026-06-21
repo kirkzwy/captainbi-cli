@@ -209,6 +209,8 @@ v0.3.0 自动验证已经覆盖：
 - 429 mock 已验证优先遵循 `Retry-After`；无 header 时使用 5/15/45 秒基础退避加正负 20% jitter，服务端 Retry-After 上限为 5 分钟。
 
 发布前本地矩阵：`go test -race ./...` 通过，总覆盖率 53.3%（CI 门槛提升到 50%）；golangci-lint v2.12.2 为 0 issue；govulncheck v1.1.4 未发现已知漏洞；darwin/linux/windows 的 amd64/arm64 六平台构建、8 个 Skills 校验、npm tarball 和 doctor smoke 均通过。
+
+GitHub 首次在 Go 1.24.13 上运行 govulncheck 时发现 9 个可达的 2026 年标准库漏洞，最高要求 Go 1.25.11 修复。项目最低版本因此提升到 Go 1.25，CI/Release 固定 1.25.11；未添加漏洞忽略规则。
 - 使用本机真实凭证和 alias 完成 Codex 只读回归：店铺、商品、广告活动日报、FBA 货件、店铺财务月报全部 `ok=true`。
 - 广告日报首次使用 GET multipart 时返回 `report date 字段是必须的`；改为 query 后成功，证明 28 个 GET 文档 body 字段必须在传输层转为 query。
 - raw `--params` 的大整数已改用 `json.Decoder.UseNumber()`，避免日期被格式化为科学计数法。
