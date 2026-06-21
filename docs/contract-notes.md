@@ -19,7 +19,7 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID=*** scripts/smoke/read_only.sh
 | 分页字段 | 已确认 | `goods list` 单页响应 `data` 为数组；该接口未返回 `max_result`，分页不能强依赖总数字段 |
 | 时间戳单位 | 已确认 | `start_modified_time/end_modified_time` 使用秒级 Unix timestamp 可成功返回数据 |
 | OpenChannelId 要求 | 部分确认 | `+sites`、`+shops` 不需要；goods/sales/finance/ads/fba/monitor 本次 smoke 使用店铺级 OpenChannelId 均成功 |
-| 429 行为 | 部分确认 | 快速请求 `get_site_list` 30 次均返回 200，未触发 429；仍不能据此判断无全局限流 |
+| 限流行为 | 已确认 | `get_site_list` 突发请求在第 82 次首次受限；CaptainBI 返回 HTTP 401、业务码 `100910` 和“请求频率过快”，而不是 HTTP 429 |
 
 ## 2026-06-15 只读 Smoke 结果
 
@@ -217,3 +217,19 @@ GitHub 首次在 Go 1.24.13 上运行 govulncheck 时发现 9 个可达的 2026 
 - 广告日报首次使用 GET multipart 时返回 `report date 字段是必须的`；改为 query 后成功，证明 28 个 GET 文档 body 字段必须在传输层转为 query。
 - raw `--params` 的大整数已改用 `json.Decoder.UseNumber()`，避免日期被格式化为科学计数法。
 - 六个平台组合（darwin/linux/windows × amd64/arm64）交叉编译通过。
+
+## 2026-06-22 真实写入与限流契约
+
+经用户逐项检查 dry-run 并明确批准后，使用单店铺 alias 完成代表性真实写入验证：
+
+- `write_safe` 店铺运营模式使用当前值做幂等写入，返回业务码 `200`，回读仍为预期模式。
+- `sync_trigger` 使用 CLOSED 货件触发同步，返回业务码 `200`；临时 `fba.sync-shipment` 白名单已在请求后立即移除。
+- `write_dangerous` 商品分组请求被服务端拒绝，返回 `api_code=100002`、`api_msg=请输入正确的goods_id`；同步请求当时尚未发送，商品分组未发生变化，临时 `goods.set-group` 白名单已移除。
+- 商品明细同时返回 `id` 与 `amazon_goods_id`。真实错误表明写入接口接受的“商品 id”不能仅凭字段名推断；下一次必须使用修正后的精确 dry-run 重新取得用户批准，旧 hash 不得复用。
+
+真实只读压力测试结论：
+
+- `get_site_list` 前 81 次突发请求成功，第 82 次首次进入服务端限流，随后同一测试窗口内持续返回限流错误。
+- CaptainBI 实际使用 HTTP 401 + 业务码 `100910` + “请求频率过快”，而不是 HTTP 429。
+- 响应没有可解析的 `Retry-After`；CLI 因此使用 5/15/45 秒基础退避加 jitter。
+- 客户端已在 token 刷新前识别 `100910`，避免把限流误判为认证失败；真实回归稳定输出退出码 4、`RATE_LIMIT_EXCEEDED`、`retryable=true` 和 `api_code=100910`。

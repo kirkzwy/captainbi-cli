@@ -466,13 +466,13 @@ func errorSubtype(err error) string {
 	}
 	var se *client.StatusError
 	if errors.As(err, &se) {
-		if se.StatusCode == 429 {
+		apiCode, apiMsg := apiErrorFields(se)
+		if se.StatusCode == 429 || fmt.Sprint(apiCode) == "100910" {
 			return internalerrs.RateLimitExceeded
 		}
 		if se.StatusCode >= 500 {
 			return internalerrs.HTTP5xx
 		}
-		apiCode, apiMsg := apiErrorFields(se)
 		msg := strings.ToLower(fmt.Sprint(apiCode) + " " + apiMsg)
 		if strings.Contains(msg, "open_channel_id") || strings.Contains(msg, "openchannelid") {
 			return internalerrs.ChannelInvalid
@@ -552,7 +552,7 @@ func hintForError(err error) string {
 		if errorSubtype(err) == "CHANNEL_INVALID" {
 			return hintForSubtype("CHANNEL_INVALID")
 		}
-		if se.StatusCode == 429 {
+		if errorSubtype(err) == internalerrs.RateLimitExceeded {
 			return "retry after retry_after_ms or reduce request frequency"
 		}
 		if se.StatusCode == 401 || se.StatusCode == 403 {

@@ -141,7 +141,7 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		if err == nil {
 			err = closeErr
 		}
-		if resp.StatusCode == http.StatusTooManyRequests {
+		if resp.StatusCode == http.StatusTooManyRequests || captainBIRateLimited(result) {
 			lastErr = &StatusError{StatusCode: resp.StatusCode, Body: result, Retryable: true, RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After"))}
 			continue
 		}
@@ -162,6 +162,13 @@ func (c *Client) do(ctx context.Context, request Request, token string) (map[str
 		retryAfter = se.RetryAfter
 	}
 	return nil, &Error{Kind: "rate_limit", Err: lastErr, Retryable: true, RetryAfter: retryAfter}
+}
+
+func captainBIRateLimited(body map[string]any) bool {
+	if body == nil {
+		return false
+	}
+	return fmt.Sprint(body["code"]) == "100910"
 }
 
 func retryDelay(attempt int, lastErr error, jitter func(time.Duration) time.Duration) time.Duration {

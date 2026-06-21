@@ -119,3 +119,45 @@ func Test429FallbackDelayUsesJitter(t *testing.T) {
 		}
 	}
 }
+
+func TestCaptainBIRateLimitBusinessCodeRetriesWithoutTokenRefresh(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("content-type", "application/json")
+		if calls < 4 {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = io.WriteString(w, `{"code":100910,"msg":"too frequent"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"code":200,"msg":"ok","data":[]}`)
+	}))
+	defer server.Close()
+	authCalls := []bool{}
+	c := New(&core.Config{BaseURL: server.URL, RateLimit: 6000}, func(_ context.Context, force bool) (string, error) {
+		authCalls = append(authCalls, force)
+		return "token", nil
+	})
+	waits := []time.Duration{}
+	c.wait = func(_ context.Context, delay time.Duration) error {
+		waits = append(waits, delay)
+		return nil
+	}
+	c.jitter = func(delay time.Duration) time.Duration { return delay }
+	if _, err := c.Do(context.Background(), Request{Method: http.MethodGet, Path: "/test"}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 4 || len(authCalls) != 1 || authCalls[0] {
+		t.Fatalf("calls=%d authCalls=%v", calls, authCalls)
+	}
+	wantWaits := []time.Duration{5 * time.Second, 15 * time.Second, 45 * time.Second}
+	if len(waits) != len(wantWaits) {
+		t.Fatalf("waits=%v", waits)
+	}
+	for i := range wantWaits {
+		if waits[i] != wantWaits[i] {
+			t.Fatalf("waits=%v", waits)
+		}
+	}
+}

@@ -1428,10 +1428,11 @@ func exitCode(err error) int {
 	}
 	var se *client.StatusError
 	if errors.As(err, &se) {
-		if errorSubtype(err) == internalerrs.ChannelInvalid {
+		subtype := errorSubtype(err)
+		if subtype == internalerrs.ChannelInvalid {
 			return 1
 		}
-		if se.StatusCode == 429 {
+		if subtype == internalerrs.RateLimitExceeded {
 			return 4
 		}
 		if se.StatusCode == 401 || se.StatusCode == 403 {
@@ -1460,7 +1461,7 @@ func writeError(w io.Writer, err error, code int) {
 			subtype := errorSubtype(err)
 			if subtype == internalerrs.ChannelInvalid {
 				kind = "business"
-			} else if se.StatusCode == 429 {
+			} else if subtype == internalerrs.RateLimitExceeded {
 				kind = "rate_limit"
 			} else if se.StatusCode == 401 || se.StatusCode == 403 {
 				kind = "auth"

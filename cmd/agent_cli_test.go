@@ -229,6 +229,7 @@ func TestStableErrorSubtypes(t *testing.T) {
 		{"bad param", typedH("business", "flag --rows must be <= 100", ""), "VALIDATION_BAD_PARAM"},
 		{"invalid client", &auth.TokenError{StatusCode: 400, ErrorCode: "invalid_client", ErrorDescription: "Invalid client authentication"}, "AUTH_INVALID_CLIENT"},
 		{"rate limit", &client.StatusError{StatusCode: http.StatusTooManyRequests}, "RATE_LIMIT_EXCEEDED"},
+		{"CaptainBI rate limit code", &client.StatusError{StatusCode: http.StatusUnauthorized, Body: map[string]any{"code": 100910, "msg": "too frequent"}}, "RATE_LIMIT_EXCEEDED"},
 		{"server", &client.StatusError{StatusCode: http.StatusBadGateway}, "HTTP_5XX"},
 		{"invalid channel", &client.StatusError{StatusCode: http.StatusUnauthorized, Body: map[string]any{"code": 100903, "msg": "open_channel_id 未找到"}}, "CHANNEL_INVALID"},
 		{"api business", &client.StatusError{StatusCode: http.StatusBadRequest, Body: map[string]any{"code": 4001, "msg": "bad request"}}, "API_BUSINESS_ERROR"},
@@ -250,6 +251,23 @@ func TestStableErrorSubtypes(t *testing.T) {
 				t.Fatalf("missing hint for %s: %#v", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestCaptainBIRateLimitCodeUsesRateLimitEnvelope(t *testing.T) {
+	err := &client.StatusError{StatusCode: http.StatusUnauthorized, Body: map[string]any{"code": 100910, "msg": "too frequent"}, Retryable: true}
+	if got := exitCode(err); got != 4 {
+		t.Fatalf("exit code=%d want 4", got)
+	}
+	globals = globalOptions{machine: true}
+	var out bytes.Buffer
+	writeError(&out, err, exitCode(err))
+	var got map[string]any
+	if unmarshalErr := json.Unmarshal(out.Bytes(), &got); unmarshalErr != nil {
+		t.Fatal(unmarshalErr)
+	}
+	if got["kind"] != "rate_limit" || got["error_code"] != internalerrs.RateLimitExceeded || got["retryable"] != true {
+		t.Fatalf("unexpected rate limit envelope: %#v", got)
 	}
 }
 
