@@ -32,6 +32,7 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
       - run: go run ./tools/gen-registry
       - run: git diff --exit-code
+      - run: bash -n scripts/smoke/*.sh
       - run: go build -buildvcs=false -o npm/bin/cbi .
       - uses: actions/setup-node@v4
         with:

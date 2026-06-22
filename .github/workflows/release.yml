@@ -26,6 +26,7 @@ jobs:
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
       - run: go run ./tools/gen-registry
       - run: git diff --exit-code
+      - run: bash -n scripts/smoke/*.sh
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser

@@ -205,6 +205,17 @@ func TestSkillDescriptionsUseRoutingContract(t *testing.T) {
 	}
 }
 
+func TestWriteSmokeRequiresAmazonGoodsID(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "scripts", "smoke", "write_guarded.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(b)
+	if !strings.Contains(text, "CAPTAINBI_WRITE_AMAZON_GOODS_ID") || strings.Contains(text, "CAPTAINBI_WRITE_GOODS_ID") {
+		t.Fatal("write smoke must require the explicit amazon_goods_id fixture variable")
+	}
+}
+
 func TestUnsafeInputPathHasStableSubtype(t *testing.T) {
 	_, err := readSafeInputFile(filepath.Join(t.TempDir(), "params.json"))
 	if err == nil {
