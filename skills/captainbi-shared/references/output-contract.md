@@ -21,11 +21,11 @@ Success:
     "pages_failed": 0,
     "partial": false,
     "has_more": false,
-	"next_window": null,
+    "next_window": null,
     "next_page": null,
-	"next_offset": 0,
-	"windows_total": 1,
-	"windows_completed": 1,
+    "next_offset": 0,
+    "windows_total": 1,
+    "windows_completed": 1,
     "rate_limit_wait_ms": 0,
     "channel": "",
     "output_file": ""
@@ -59,6 +59,10 @@ Failure:
 
 Compatibility fields such as `error_code`, `kind`, `message`, `hint`, `api_code`, and `api_msg` may also appear at the top level. Prefer the nested `error` object when available.
 
+Control-plane commands such as `auth`, `config show`, `doctor local`, JSON `schema`, `rate-limit status`, and `registry` use the same success envelope in Agent mode. During v0.x their original fields also remain at the top level for compatibility; new integrations should read `.data`. Direct-consumption artifacts such as `tools export` and `schema --format openai-tool` remain unwrapped.
+
+Multi-channel results include `meta.channels_total`, `meta.channels_succeeded`, `meta.channels_failed`, summed `meta.rows`, and `meta.partial`. Mixed success exits 0 with `partial=true`. When every channel fails, the command exits 1 with `CHANNEL_BATCH_FAILED` and preserves per-channel details under `data.channels`.
+
 Stdout is for data. Stderr is for errors, diagnostics, progress and debug logs.
 
 Stable error subtypes:
@@ -69,6 +73,7 @@ Stable error subtypes:
 - `CHANNEL_MISSING`
 - `CHANNEL_ALIAS_NOT_FOUND`
 - `CHANNEL_INVALID`
+- `CHANNEL_BATCH_FAILED`
 - `VALIDATION_REQUIRED_FLAG`
 - `VALIDATION_BAD_PARAM`
 - `INPUT_PATH_UNSAFE`
@@ -108,4 +113,4 @@ Write dry-run data includes:
 }
 ```
 
-For a paginated or date-range result, continue only when `meta.has_more=true`. Reuse the unchanged filters and pass `meta.next_window`, `meta.next_page`, and `meta.next_offset` through `--resume-from-window`, `--resume-from-page`, and `--resume-offset`. `modified_time_window` ranges are split into non-overlapping 31-day windows; `report_date` batches use inclusive `--range-start/--range-end` values in matching `YYYYMMDD` or `YYYYMM` format.
+For a paginated or date-range result, continue only when `meta.has_more=true`. Reuse the unchanged filters and pass `meta.next_window`, `meta.next_page`, and `meta.next_offset` through `--resume-from-window`, `--resume-from-page`, and `--resume-offset`. `windows_started/windows_completed` count windows processed by the current invocation, while `windows_total` describes the complete requested range. `modified_time_window` ranges are split into non-overlapping 31-day windows; a wider request without `--page-all` is rejected locally. `report_date` batches use inclusive `--range-start/--range-end` values in matching `YYYYMMDD` or `YYYYMM` format.

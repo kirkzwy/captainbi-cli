@@ -15,8 +15,10 @@ Common recovery:
 - `CHANNEL_MISSING`: run `cbi +shops`, then configure or pass `--channel <alias>`.
 - `CHANNEL_ALIAS_NOT_FOUND`: run `cbi config channels list`; use a configured alias. Raw IDs belong in `--open-channel-id`.
 - `CHANNEL_INVALID`: verify the alias/OpenChannelId with `cbi +shops`, then update channel config.
+- `CHANNEL_BATCH_FAILED`: inspect `data.channels`; fix failed aliases individually and retry only those channels.
 - `VALIDATION_REQUIRED_FLAG`: use command `--help` examples and pass the missing flag.
 - `VALIDATION_BAD_PARAM`: inspect `cbi schema <domain.command>` and correct the value.
+- A modified-time range beyond the endpoint window limit requires `--page-all`; keep the same filters when resuming.
 - `INPUT_PATH_UNSAFE`: use a relative file under the current working directory, or pipe absolute-path content through stdin.
 - `API_BUSINESS_ERROR`: HTTP may still be 200. Read `api_code/api_msg`, correct the request and do not treat empty data as success.
 - `WRITE_CONFIRMATION_MISMATCH`: the request changed after preview; generate a new dry-run.

@@ -5,7 +5,7 @@ Use this path when a new Agent needs daily CaptainBI read access and explicitly 
 1. Install the CLI:
 
 ```bash
-npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz
+npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.1/captainbi-cli-0.3.1.tgz
 cbi --version
 cbi doctor local --machine --format json
 ```
@@ -62,6 +62,7 @@ cbi doctor local --machine --format json
 ```bash
 cbi --channel main +goods --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
 cbi --channel main +inventory --modified-since <unix_seconds> --modified-until <unix_seconds> --summary --machine --format json
+cbi --channel main +ads-campaigns --modified-since <unix_seconds> --modified-until <unix_seconds> --type <1|2|3> --summary --machine --format json
 cbi --channel main +ads-campaign-report --date <YYYYMMDD> --summary --machine --format json
 cbi --channel main +reviews --summary --machine --format json
 ```

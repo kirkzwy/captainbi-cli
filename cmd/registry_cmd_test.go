@@ -51,6 +51,9 @@ func TestRegistryUpdateLoadAndResetCLI(t *testing.T) {
 	if update["ok"] != true || update["registry_version"] != candidate.Version {
 		t.Fatalf("unexpected update output: %#v", update)
 	}
+	if data, ok := update["data"].(map[string]any); !ok || data["registry_version"] != candidate.Version {
+		t.Fatalf("registry update missing compatible data envelope: %#v", update)
+	}
 
 	globals = globalOptions{}
 	root = NewRootCmd()
@@ -67,6 +70,9 @@ func TestRegistryUpdateLoadAndResetCLI(t *testing.T) {
 	}
 	if doctor["registry_overridden"] != true || doctor["registry_version"] != candidate.Version {
 		t.Fatalf("override not reported: %#v", doctor)
+	}
+	if data, ok := doctor["data"].(map[string]any); !ok || data["registry_version"] != candidate.Version {
+		t.Fatalf("doctor missing compatible data envelope: %#v", doctor)
 	}
 
 	globals = globalOptions{}

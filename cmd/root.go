@@ -26,7 +26,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
 
-var version = "0.3.0-dev"
+var version = "0.3.1-dev"
 
 type globalOptions struct {
 	format        string
@@ -217,6 +217,9 @@ func newConfigCmd() *cobra.Command {
 			if err := core.SaveConfig(cfg); err != nil {
 				return err
 			}
+			if agentMode() {
+				return writeControlValue(cmd, map[string]any{"status": "saved"}, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
+			}
 			_, err = fmt.Fprintln(cmd.OutOrStdout(), "configuration saved")
 			return err
 		},
@@ -269,7 +272,7 @@ func newConfigCmd() *cobra.Command {
 				"write_allowlist_count": len(cfg.WriteAllowlist),
 				"plain_secret":          cfg.PlainSecretHint != "",
 			}
-			return outfmt.Write(cmd.OutOrStdout(), view, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
+			return writeControlValue(cmd, view, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
 		},
 	}
 	cmd.AddCommand(showCmd)
@@ -436,7 +439,7 @@ func newAuthCmd() *cobra.Command {
 			if _, err := auth.GetToken(cmd.Context(), cfg, true); err != nil {
 				return &client.Error{Kind: "auth", Err: err}
 			}
-			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
+			return writeControlValue(cmd, map[string]any{
 				"status":       "ok",
 				"token_expiry": cfg.TokenExpiry,
 			}, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
@@ -450,7 +453,7 @@ func newAuthCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
+			return writeControlValue(cmd, map[string]any{
 				"configured":           cfg.ClientID != "",
 				"has_cached_token":     cfg.AccessToken != "",
 				"token_expiry":         cfg.TokenExpiry,
@@ -472,6 +475,9 @@ func newAuthCmd() *cobra.Command {
 			cfg.TokenExpiry = time.Time{}
 			if err := core.SaveConfig(cfg); err != nil {
 				return err
+			}
+			if agentMode() {
+				return writeControlValue(cmd, map[string]any{"status": "logged_out"}, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
 			}
 			_, err = fmt.Fprintln(cmd.OutOrStdout(), "logged out")
 			return err
@@ -561,7 +567,7 @@ func newSchemaCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			if globals.format == "openai-tool" {
 				return outfmt.Write(cmd.OutOrStdout(), openAIToolSchema(m), outfmt.Options{Format: "json", Machine: globals.machine, JQ: jq}, nil)
 			}
-			return outfmt.Write(cmd.OutOrStdout(), schemaView(m), outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, nil)
+			return writeControlValue(cmd, schemaView(m), outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, nil)
 		},
 	}
 	cmd.Flags().StringVar(&jq, "jq", "", "gojq expression to filter JSON output")
@@ -590,7 +596,7 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 				configWritable = false
 				configWriteError = security.RedactString(err.Error())
 			}
-			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
+			return writeControlValue(cmd, map[string]any{
 				"config_loads":              true,
 				"config_dir":                dir,
 				"config_dir_overridden":     os.Getenv(core.EnvConfigDir) != "",
@@ -805,7 +811,15 @@ func registerShortcuts(root *cobra.Command) {
 		cmd.Flags().StringVar(&modifiedSince, "modified-since", "", "start modified timestamp")
 		cmd.Flags().StringVar(&end, "modified-until", "", "end modified timestamp")
 	}))
-	root.AddCommand(shortcut("+ads-campaigns", "List advertising campaigns", "ads.advertise-campaign", "  cbi --channel main +ads-campaigns --summary --machine\n  cbi --channel all +ads-campaigns --summary --machine", nil))
+	root.AddCommand(shortcut("+ads-campaigns", "List advertising campaigns", "ads.advertise-campaign", "  cbi --channel main +ads-campaigns --modified-since 1781424057 --modified-until 1781510457 --type 1 --summary --machine\n  cbi --channel all +ads-campaigns --modified-since 1781424057 --modified-until 1781510457 --type 1 --page-all --max-records 500 --machine", func(cmd *cobra.Command, values map[string]*string) {
+		modifiedSince, modifiedUntil, campaignType := "", "", ""
+		values["start_modified_time"] = &modifiedSince
+		values["end_modified_time"] = &modifiedUntil
+		values["type"] = &campaignType
+		cmd.Flags().StringVar(&modifiedSince, "modified-since", "", "start modified timestamp")
+		cmd.Flags().StringVar(&modifiedUntil, "modified-until", "", "end modified timestamp")
+		cmd.Flags().StringVar(&campaignType, "type", "", "advertising type: 1 sponsored products, 2 sponsored brands, 3 sponsored display")
+	}))
 	root.AddCommand(shortcut("+ads-campaign-report", "Get advertising campaign report", "ads.advertise-campaign-report", "  cbi --channel main +ads-campaign-report --date 20260615 --summary --machine\n  cbi --channel main +ads-campaign-report --date 20260615 --output-file ads-campaigns.json --machine", func(cmd *cobra.Command, values map[string]*string) {
 		date := ""
 		values["report_date"] = &date
@@ -977,7 +991,15 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 			results = append(results, channelResult(target, resp, err))
 			writeAudit(m, target, err, opts.confirmHash)
 		}
-		return writeValue(cmd, map[string]any{"ok": true, "channels": results}, nil, opts.jq)
+		aggregate := aggregateChannelResults(results)
+		if intFrom(aggregate["channels_succeeded"]) == 0 {
+			return &channelBatchError{
+				results: results,
+				meta:    aggregate,
+				cause:   internalerrs.New("business", internalerrs.ChannelBatchFailed, "all channel requests failed", internalerrs.Hint(internalerrs.ChannelBatchFailed)),
+			}
+		}
+		return writeValue(cmd, aggregate, nil, opts.jq)
 	}
 	req.OpenChannelID = targets[0].ID
 	resp, err := executeRequest(cmd.Context(), c, m, req, opts)
@@ -1514,7 +1536,7 @@ func writeError(w io.Writer, err error, code int) {
 		if hint != "" {
 			meta["hints"] = []string{hint}
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		envelope := map[string]any{
 			"ok":             false,
 			"error_code":     subtype,
 			"kind":           kind,
@@ -1527,7 +1549,15 @@ func writeError(w io.Writer, err error, code int) {
 			"request_id":     requestID,
 			"error":          errObj,
 			"meta":           meta,
-		})
+		}
+		var batchErr *channelBatchError
+		if errors.As(err, &batchErr) {
+			envelope["data"] = map[string]any{"channels": batchErr.results}
+			for _, key := range []string{"channels_total", "channels_succeeded", "channels_failed", "rows", "partial"} {
+				copyMetaKey(meta, batchErr.meta, key)
+			}
+		}
+		_ = json.NewEncoder(w).Encode(envelope)
 		return
 	}
 	_, _ = fmt.Fprintln(w, security.RedactString(err.Error()))

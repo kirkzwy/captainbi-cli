@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kirkzwy/captainbi-cli/internal/client"
+	internalerrs "github.com/kirkzwy/captainbi-cli/internal/errs"
 	"github.com/kirkzwy/captainbi-cli/internal/registry"
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
@@ -22,6 +23,9 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	if !opts.pageAll {
 		if opts.rangeStart != "" || opts.rangeEnd != "" || opts.resumeWindow > 1 || opts.resumeOffset > 0 {
 			return nil, typedH("business", "range and resume options require --page-all", "add --page-all or remove the range/resume options")
+		}
+		if err := validateSingleRequestRange(req, m); err != nil {
+			return nil, err
 		}
 		return c.Do(ctx, req)
 	}
@@ -156,6 +160,9 @@ stop:
 				maxResult := intFrom(resp[m.Pagination.TotalField])
 				pageComplete = maxResult > 0 && page*rows >= maxResult
 			}
+			if pageComplete {
+				windowsCompleted++
+			}
 			if opts.maxRecords > 0 && len(all) >= opts.maxRecords {
 				if !pageComplete {
 					hasMore, nextWindow, nextPage = true, batch.Index, page+1
@@ -165,7 +172,6 @@ stop:
 				break stop
 			}
 			if pageComplete {
-				windowsCompleted++
 				break
 			}
 			page++
@@ -202,6 +208,33 @@ stop:
 		envelope["partial_error"] = security.RedactString(partialError)
 	}
 	return envelope, nil
+}
+
+func validateSingleRequestRange(req client.Request, m registry.Method) error {
+	if m.Pagination.RangeType != "modified_time_window" {
+		return nil
+	}
+	startName, endName := "start_modified_time", "end_modified_time"
+	if !methodHasParam(m, startName) && methodHasParam(m, "start_report_time") {
+		startName, endName = "start_report_time", "end_report_time"
+	}
+	startText, endText := requestParam(req, m, startName), requestParam(req, m, endName)
+	if startText == "" || endText == "" {
+		return nil
+	}
+	start, startErr := strconv.ParseInt(startText, 10, 64)
+	end, endErr := strconv.ParseInt(endText, 10, 64)
+	if startErr != nil || endErr != nil || end < start {
+		return typedH("business", "modified-time range must use ordered unix seconds", "fix the timestamp range according to cbi schema")
+	}
+	days := m.Pagination.WindowDays
+	if days <= 0 {
+		days = 31
+	}
+	if end-start+1 > int64(days)*24*60*60 {
+		return internalerrs.New("business", internalerrs.ValidationBadParam, fmt.Sprintf("modified-time range exceeds the %d-day API limit", days), "add --page-all so cbi can split the request into supported time windows")
+	}
+	return nil
 }
 
 func buildRequestBatches(req client.Request, m registry.Method, opts requestOptions) ([]requestBatch, error) {

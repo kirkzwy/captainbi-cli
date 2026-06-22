@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kirkzwy/captainbi-cli/internal/client"
 	"github.com/kirkzwy/captainbi-cli/internal/core"
+	internalerrs "github.com/kirkzwy/captainbi-cli/internal/errs"
 	"github.com/kirkzwy/captainbi-cli/internal/registry"
 )
 
@@ -157,6 +159,85 @@ func TestExecuteRequestSplitsModifiedTimeWindows(t *testing.T) {
 	}
 }
 
+func TestSingleRequestRejectsRangeBeyondWindow(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []any{}})
+	}))
+	defer server.Close()
+	c := client.New(&core.Config{BaseURL: server.URL, RateLimit: 10000}, func(context.Context, bool) (string, error) { return "token", nil })
+	m := pageRowsMethod()
+	m.Pagination.RangeType = "modified_time_window"
+	m.Pagination.WindowDays = 31
+	m.Params = []registry.Param{{Name: "start_modified_time", Location: "query"}, {Name: "end_modified_time", Location: "query"}}
+	start := int64(1_700_000_000)
+	req := client.Request{Method: "GET", Path: "/items", Query: map[string]string{
+		"start_modified_time": strconv.FormatInt(start, 10),
+		"end_modified_time":   strconv.FormatInt(start+32*24*60*60, 10),
+	}}
+	_, err := executeRequest(context.Background(), c, m, req, requestOptions{})
+	if err == nil || errorSubtype(err) != internalerrs.ValidationBadParam || !strings.Contains(hintForError(err), "--page-all") {
+		t.Fatalf("expected local page-all range hint, got %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("out-of-range request reached server %d time(s)", calls)
+	}
+}
+
+func TestMaxRecordsCompletesFinalWindowAtExactBoundary(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []map[string]any{{"window": r.URL.Query().Get("start_modified_time")}}})
+	}))
+	defer server.Close()
+	c := client.New(&core.Config{BaseURL: server.URL, RateLimit: 10000}, func(context.Context, bool) (string, error) { return "token", nil })
+	m := pageRowsMethod()
+	m.Pagination.RangeType = "modified_time_window"
+	m.Pagination.WindowDays = 1
+	m.Params = []registry.Param{{Name: "rows", Location: "query"}, {Name: "page", Location: "query"}, {Name: "start_modified_time", Location: "query"}, {Name: "end_modified_time", Location: "query"}}
+	start := int64(1_700_000_000)
+	req := client.Request{Method: "GET", Path: "/items", Query: map[string]string{
+		"rows":                "2",
+		"start_modified_time": strconv.FormatInt(start, 10),
+		"end_modified_time":   strconv.FormatInt(start+2*24*60*60-1, 10),
+	}}
+	resp, err := executeRequest(context.Background(), c, m, req, requestOptions{pageAll: true, maxRecords: 2, pageDelay: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp["has_more"] != false || intFrom(resp["windows_total"]) != 2 || intFrom(resp["windows_started"]) != 2 || intFrom(resp["windows_completed"]) != 2 {
+		t.Fatalf("exact-boundary completion metadata is inconsistent: %#v", resp)
+	}
+}
+
+func TestMaxRecordsContinuesAtNextWindow(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []map[string]any{{"window": r.URL.Query().Get("start_modified_time")}}})
+	}))
+	defer server.Close()
+	c := client.New(&core.Config{BaseURL: server.URL, RateLimit: 10000}, func(context.Context, bool) (string, error) { return "token", nil })
+	m := pageRowsMethod()
+	m.Pagination.RangeType = "modified_time_window"
+	m.Pagination.WindowDays = 1
+	m.Params = []registry.Param{{Name: "rows", Location: "query"}, {Name: "page", Location: "query"}, {Name: "start_modified_time", Location: "query"}, {Name: "end_modified_time", Location: "query"}}
+	start := int64(1_700_000_000)
+	req := client.Request{Method: "GET", Path: "/items", Query: map[string]string{
+		"rows":                "2",
+		"start_modified_time": strconv.FormatInt(start, 10),
+		"end_modified_time":   strconv.FormatInt(start+2*24*60*60-1, 10),
+	}}
+	resp, err := executeRequest(context.Background(), c, m, req, requestOptions{pageAll: true, maxRecords: 1, pageDelay: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp["has_more"] != true || intFrom(resp["next_window"]) != 2 || intFrom(resp["next_page"]) != 1 || intFrom(resp["windows_completed"]) != 1 {
+		t.Fatalf("next-window continuation metadata is inconsistent: %#v", resp)
+	}
+}
+
 func TestExecuteRequestReportDateRangeAndResumeWindow(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	seen := []string{}
@@ -174,7 +255,7 @@ func TestExecuteRequestReportDateRangeAndResumeWindow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(seen) != 2 || seen[0] != "20260602" || seen[1] != "20260603" || intFrom(resp["windows_total"]) != 3 {
+	if len(seen) != 2 || seen[0] != "20260602" || seen[1] != "20260603" || intFrom(resp["windows_total"]) != 3 || intFrom(resp["windows_started"]) != 2 || intFrom(resp["windows_completed"]) != 2 {
 		t.Fatalf("unexpected report range resume: seen=%#v resp=%#v", seen, resp)
 	}
 	months, err := reportDateValues("202601", "202603")

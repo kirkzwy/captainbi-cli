@@ -40,7 +40,7 @@ func newRegistryCmd(reg *registry.Registry, regErr error) *cobra.Command {
 				return err
 			}
 			methods := len(effective.AllMethods())
-			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
+			return writeControlValue(cmd, map[string]any{
 				"ok":                     count == methods,
 				"source":                 openAPISource,
 				"openapi_methods":        count,
@@ -68,7 +68,7 @@ func newRegistryCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			if err != nil {
 				return typedH("business", "registry update was rejected: "+err.Error(), "keep the embedded registry and update the CLI if the metadata is incompatible")
 			}
-			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
+			return writeControlValue(cmd, map[string]any{
 				"ok":                     true,
 				"source":                 registryMetadataSource,
 				"registry_version":       info.EffectiveVersion,
@@ -87,7 +87,7 @@ func newRegistryCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return outfmt.Write(cmd.OutOrStdout(), map[string]any{
+			return writeControlValue(cmd, map[string]any{
 				"ok":               true,
 				"removed_path":     path,
 				"registry_version": reg.Version,

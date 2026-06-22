@@ -244,3 +244,16 @@ GitHub 首次在 Go 1.24.13 上运行 govulncheck 时发现 9 个可达的 2026 
 - fixture 真正改为 `amazon_goods_id` 后，写入前回读唯一命中商品且处于原分组；用户批准的 fresh 请求与预览 method/path/body/risk/policy 完全一致。
 - 设置目标分组返回业务码 `200`，回读确认商品进入目标分组；经用户再次批准 rollback 预览后恢复原分组，回读确认原分组匹配且目标分组不再匹配。
 - `goods.set-group` 临时白名单已移除，最终白名单为空。真实写入脚本变量改名为 `CAPTAINBI_WRITE_AMAZON_GOODS_ID`，避免再次混淆本地 `id`。
+
+## 2026-06-23 v0.3.1 WorkBuddy 日常可用性修复
+
+WorkBuddy v0.3.0 只读回归暴露的必要修复：
+
+- `+ads-campaigns` 补齐 `--modified-since/--modified-until/--type 1|2|3`，Registry 按真实 API 契约将三个参数标记为必填。
+- 不带 `--page-all` 的超 31 天修改时间请求在本地返回 `VALIDATION_BAD_PARAM`，不再依赖服务端模糊错误。
+- 修复 `--max-records` 刚好落在窗口末尾时 `windows_completed` 少计数的问题，避免 Agent 重复续拉。
+- 多店铺聚合统一返回店铺成功/失败数、汇总行数和 `partial`；全部店铺失败时返回 `CHANNEL_BATCH_FAILED` 和非零退出码。
+- auth/config/doctor/schema JSON/rate-limit/registry 机器输出提供 `ok/data/meta`，v0.x 期间同时保留原顶层字段。
+- `tools export` 和 `schema --format openai-tool` 保持裸生成物，避免破坏 Agent tool loader。
+
+本轮按用户要求不重复 WorkBuddy P8-1~P8-6 真实写入，也不执行 429/100910 压力测试。

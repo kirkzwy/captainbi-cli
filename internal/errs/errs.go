@@ -7,6 +7,7 @@ const (
 	ChannelMissing             = "CHANNEL_MISSING"
 	ChannelAliasNotFound       = "CHANNEL_ALIAS_NOT_FOUND"
 	ChannelInvalid             = "CHANNEL_INVALID"
+	ChannelBatchFailed         = "CHANNEL_BATCH_FAILED"
 	ValidationRequiredFlag     = "VALIDATION_REQUIRED_FLAG"
 	ValidationBadParam         = "VALIDATION_BAD_PARAM"
 	InputPathUnsafe            = "INPUT_PATH_UNSAFE"
@@ -52,6 +53,8 @@ func Hint(subtype string) string {
 		return "run cbi config channels list or cbi +shops, then use a configured alias; use --open-channel-id for a raw ID"
 	case ChannelInvalid:
 		return "verify the channel alias or OpenChannelId with cbi +shops, then update cbi config channels"
+	case ChannelBatchFailed:
+		return "inspect data.channels, fix each failed channel, then retry only the affected aliases"
 	case ValidationRequiredFlag:
 		return "run the command with --help and pass the required flag shown in Examples"
 	case ValidationBadParam:

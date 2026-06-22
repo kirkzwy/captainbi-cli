@@ -6,6 +6,7 @@ Use `captainbi-shared` first.
 
 ```bash
 cbi --channel <alias> +ads-campaign-report \
+  --date <YYYYMMDD> \
   --summary \
   --machine --format json
 ```

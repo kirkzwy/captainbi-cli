@@ -19,7 +19,7 @@ This repository is an Agent-ready CaptainBI CLI:
 
 ```bash
 # Preferred Agent path for this private/internal phase
-npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz
+npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.1/captainbi-cli-0.3.1.tgz
 cbi --version
 cbi doctor local --machine --format json
 
@@ -58,7 +58,7 @@ export NODE_USE_ENV_PROXY=1
 Fallback without npm GitHub install:
 
 ```bash
-curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli_0.3.0_darwin_arm64.tar.gz
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.1/captainbi-cli_0.3.1_darwin_arm64.tar.gz
 tar -xzf cbi.tar.gz
 ./cbi --version
 ```
@@ -79,6 +79,7 @@ cbi +orders --channel main --start 1781424057 --end 1781510457
 cbi +goods --channel main --modified-since 1781424057 --modified-until 1781510457
 cbi +finance-daily --channel main --date 20260615
 cbi +inventory --channel main --modified-since 1781424057 --modified-until 1781510457
+cbi +ads-campaigns --channel main --modified-since 1781424057 --modified-until 1781510457 --type 1 --summary
 cbi +ads-campaign-report --channel main --date 20260615 --summary
 cbi +reviews --channel main --summary
 cbi +store-transactions --channel main --start 20260601 --end 20260615
@@ -129,11 +130,14 @@ cbi tools export --format openai
 Persist another account-plan limit with `cbi config rate-limit <requests-per-minute>`; `--rate-limit` and `CAPTAINBI_RATE_LIMIT` remain per-process overrides.
 
 - Use `--machine --format json` for structured output.
+- Control commands expose `ok/data/meta` in machine JSON while retaining their legacy top-level fields throughout v0.x. Generated tool artifacts remain unwrapped.
 - Use `CBI_AGENT=1` when the host should receive machine-friendly errors by default.
 - Use `--summary` before large pulls; use `--output-file` for full data.
 - Page-all for `page_rows` endpoints stops on `len(data) < rows`; `max_result` is optional.
 - Read `meta.has_more` and the `next_window/next_page/next_offset` cursor to decide whether to continue; pass them back through the matching `--resume-*` flags.
 - `--page-all` automatically splits modified-time spans into non-overlapping 31-day windows. For report endpoints, use inclusive `--range-start/--range-end` in matching `YYYYMMDD` or `YYYYMM` format.
+- A modified-time request beyond the endpoint window limit is rejected locally unless `--page-all` is present.
+- For `--channel all`, read `channels_total/channels_succeeded/channels_failed`, summed `rows`, and `partial`; an all-failed batch exits non-zero with `CHANNEL_BATCH_FAILED`.
 - Success output uses `ok/data/meta`; failure output uses `ok/error/meta`.
 - Read `error.kind`, `error.subtype`, `error.hint`, `error.api_code` and `error.api_msg` on failures.
 - CaptainBI `code != 200` is a failed call even when HTTP status is 200.

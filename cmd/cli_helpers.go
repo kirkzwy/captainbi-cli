@@ -125,6 +125,9 @@ func channelResult(target channelTarget, resp map[string]any, err error) map[str
 		"channel":         target.Alias,
 		"open_channel_id": security.RedactValue(target.ID),
 		"ok":              err == nil,
+		"rows":            0,
+		"partial":         false,
+		"output_file":     "",
 	}
 	if resp != nil {
 		out["rows"] = rowCount(resp)
@@ -134,16 +137,54 @@ func channelResult(target channelTarget, resp map[string]any, err error) map[str
 		if v, ok := resp["rate_limit_wait_ms"]; ok {
 			out["rate_limit_wait_ms"] = v
 		}
+		copyMetaKey(out, resp, "output_file")
 	}
 	if err != nil {
 		out["error_code"] = errorCode(err)
 		out["message"] = security.RedactString(err.Error())
+		out["hint"] = security.RedactString(hintForError(err))
+		out["retryable"], out["retry_after_ms"] = retryFields(err)
 		if apiCode, apiMsg := apiErrorFields(err); apiCode != nil || apiMsg != "" {
 			out["api_code"] = apiCode
 			out["api_msg"] = security.RedactString(apiMsg)
 		}
 	}
 	return out
+}
+
+type channelBatchError struct {
+	results []map[string]any
+	meta    map[string]any
+	cause   error
+}
+
+func (e *channelBatchError) Error() string { return e.cause.Error() }
+func (e *channelBatchError) Unwrap() error { return e.cause }
+
+func aggregateChannelResults(results []map[string]any) map[string]any {
+	succeeded, failed, rows := 0, 0, 0
+	partial := false
+	for _, result := range results {
+		if ok, _ := result["ok"].(bool); ok {
+			succeeded++
+		} else {
+			failed++
+			partial = true
+		}
+		rows += intFrom(result["rows"])
+		if value, _ := result["partial"].(bool); value {
+			partial = true
+		}
+	}
+	return map[string]any{
+		"ok":                 succeeded > 0,
+		"channels":           results,
+		"channels_total":     len(results),
+		"channels_succeeded": succeeded,
+		"channels_failed":    failed,
+		"rows":               rows,
+		"partial":            partial,
+	}
 }
 
 func writeAudit(m registry.Method, target channelTarget, callErr error, requestHash string) {
@@ -217,6 +258,27 @@ func writeValue(cmd *cobra.Command, value any, columns []string, jq string) erro
 	return outfmt.Write(cmd.OutOrStdout(), value, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, columns)
 }
 
+func writeControlValue(cmd *cobra.Command, value any, opts outfmt.Options, columns []string) error {
+	if agentMode() && strings.EqualFold(opts.Format, "json") {
+		envelope := successEnvelope(value)
+		if fields, ok := value.(map[string]any); ok {
+			if valueOK, exists := fields["ok"].(bool); exists {
+				envelope["ok"] = valueOK
+			}
+			for key, field := range fields {
+				switch key {
+				case "ok", "data", "meta", "error":
+					continue
+				default:
+					envelope[key] = field
+				}
+			}
+		}
+		return outfmt.Write(cmd.OutOrStdout(), envelope, opts, columns)
+	}
+	return outfmt.Write(cmd.OutOrStdout(), value, opts, columns)
+}
+
 func agentMode() bool {
 	return globals.machine || os.Getenv("CBI_AGENT") == "1"
 }
@@ -247,6 +309,13 @@ func metaForValue(value any) map[string]any {
 		meta["output_file"] = globals.outputFile
 	}
 	if m, ok := value.(map[string]any); ok {
+		if channels, ok := m["channels"].([]map[string]any); ok {
+			meta["count"] = len(channels)
+			meta["rows"] = intFrom(m["rows"])
+			for _, key := range []string{"channels_total", "channels_succeeded", "channels_failed", "partial"} {
+				copyMetaKey(meta, m, key)
+			}
+		}
 		for _, key := range paginationMetaKeys {
 			copyMetaKey(meta, m, key)
 		}
@@ -316,6 +385,11 @@ func prepareValue(value any) any {
 }
 
 func summarizeValue(value any) map[string]any {
+	if m, ok := value.(map[string]any); ok {
+		if _, isChannels := m["channels"]; isChannels {
+			return copyMap(m)
+		}
+	}
 	rows := rowsFromAny(value)
 	fields := map[string]int{}
 	channels := map[string]int{}
@@ -352,6 +426,11 @@ func summarizeValue(value any) map[string]any {
 }
 
 func rowCount(value any) int {
+	if m, ok := value.(map[string]any); ok {
+		if _, isChannels := m["channels"]; isChannels {
+			return intFrom(m["rows"])
+		}
+	}
 	return len(rowsFromAny(value))
 }
 

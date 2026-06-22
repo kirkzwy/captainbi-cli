@@ -22,7 +22,7 @@ func newRateLimitCmd() *cobra.Command {
 				return err
 			}
 			status["ok"] = true
-			return outfmt.Write(cmd.OutOrStdout(), status, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
+			return writeControlValue(cmd, status, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
 		},
 	})
 	return cmd

@@ -234,12 +234,13 @@ func buildRegistry(source string, s spec) registry {
 					}
 				}
 			}
+			applyParamOverrides(p, m.Params)
 			m.Pagination = paginationFor(m.Params)
 			services[domain].Methods = append(services[domain].Methods, m)
 		}
 	}
 	order := []string{"goods", "sales", "finance", "fba", "ads", "monitor"}
-	reg := registry{Version: "0.3.0", Source: source}
+	reg := registry{Version: "0.3.1", Source: source}
 	for _, name := range order {
 		sort.Slice(services[name].Methods, func(i, j int) bool {
 			return services[name].Methods[i].CommandName < services[name].Methods[j].CommandName
@@ -247,6 +248,21 @@ func buildRegistry(source string, s spec) registry {
 		reg.Services = append(reg.Services, *services[name])
 	}
 	return reg
+}
+
+func applyParamOverrides(path string, params []param) {
+	if path != "/v1/open_cpc/advertise_campaign" {
+		return
+	}
+	for i := range params {
+		switch params[i].Name {
+		case "start_modified_time", "end_modified_time":
+			params[i].Required = true
+		case "type":
+			params[i].Required = true
+			params[i].Enum = []any{1, 2, 3}
+		}
+	}
 }
 
 func domainFor(path string, op operation) string {

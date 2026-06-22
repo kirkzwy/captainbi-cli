@@ -16,6 +16,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/client"
 	"github.com/kirkzwy/captainbi-cli/internal/core"
 	internalerrs "github.com/kirkzwy/captainbi-cli/internal/errs"
+	outfmt "github.com/kirkzwy/captainbi-cli/internal/output"
 )
 
 func TestSchemaOpenAIToolFormat(t *testing.T) {
@@ -147,6 +148,186 @@ func TestShortcutHelpIncludesAgentFlagsAndExamples(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAdsCampaignsShortcutUsesRequiredQuery(t *testing.T) {
+	seen := map[string]string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, name := range []string{"start_modified_time", "end_modified_time", "type"} {
+			seen[name] = r.URL.Query().Get(name)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []any{}})
+	}))
+	defer server.Close()
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvAccessToken, "test-token")
+	t.Setenv(core.EnvBaseURL, server.URL)
+	t.Setenv(core.EnvOpenChannelID, "test-channel")
+	t.Setenv(core.EnvRateLimit, "10000")
+
+	if _, err := executeTestRoot([]string{"--machine", "+ads-campaigns", "--modified-since", "100", "--modified-until", "200", "--type", "1"}); err != nil {
+		t.Fatalf("shortcut failed: %v", err)
+	}
+	if seen["start_modified_time"] != "100" || seen["end_modified_time"] != "200" || seen["type"] != "1" {
+		t.Fatalf("shortcut query mismatch: %#v", seen)
+	}
+	if _, err := executeTestRoot([]string{"--machine", "+ads-campaigns", "--modified-since", "100", "--modified-until", "200"}); err == nil || errorSubtype(err) != internalerrs.ValidationRequiredFlag {
+		t.Fatalf("missing type should fail locally: %v", err)
+	}
+	if _, err := executeTestRoot([]string{"--machine", "+ads-campaigns", "--modified-since", "100", "--modified-until", "200", "--type", "4"}); err == nil || errorSubtype(err) != internalerrs.ValidationBadParam {
+		t.Fatalf("invalid type should fail locally: %v", err)
+	}
+}
+
+func TestControlValueMachineEnvelopeKeepsCompatibilityFields(t *testing.T) {
+	root := NewRootCmd()
+	globals = globalOptions{machine: true, format: "json"}
+	var out bytes.Buffer
+	root.SetOut(&out)
+	value := map[string]any{"status": "ok", "registry_methods": 65}
+	if err := writeControlValue(root, value, outfmt.Options{Format: "json", Machine: true}, nil); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	data, ok := got["data"].(map[string]any)
+	if got["ok"] != true || got["status"] != "ok" || got["registry_methods"] != float64(65) || !ok || data["status"] != "ok" {
+		t.Fatalf("compatibility envelope mismatch: %#v", got)
+	}
+}
+
+func TestSchemaMachineOutputHasEnvelopeAndCompatibilityFields(t *testing.T) {
+	out, err := executeTestRoot([]string{"--machine", "schema", "goods.list"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatal(err)
+	}
+	data, ok := got["data"].(map[string]any)
+	if got["domain_command"] != "goods.list" || !ok || data["domain_command"] != "goods.list" {
+		t.Fatalf("schema compatibility envelope mismatch: %#v", got)
+	}
+}
+
+func TestAuthStatusMachineOutputHasEnvelopeAndCompatibilityFields(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvClientID, "test-client")
+	t.Setenv(core.EnvAccessToken, "test-token")
+	out, err := executeTestRoot([]string{"--machine", "auth", "status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatal(err)
+	}
+	data, ok := got["data"].(map[string]any)
+	if got["configured"] != true || got["has_cached_token"] != true || !ok || data["configured"] != true {
+		t.Fatalf("auth compatibility envelope mismatch: %#v", got)
+	}
+}
+
+func TestConfigAndRateControlCommandsUseCompatibleEnvelope(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvAccessToken, "test-token")
+	initOut, err := executeTestRoot([]string{"--machine", "config", "init", "--client-id", "test-client", "--non-interactive"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var initialized map[string]any
+	if err := json.Unmarshal(initOut, &initialized); err != nil {
+		t.Fatal(err)
+	}
+	if initialized["status"] != "saved" || initialized["data"].(map[string]any)["status"] != "saved" {
+		t.Fatalf("config init compatibility envelope mismatch: %#v", initialized)
+	}
+	showOut, err := executeTestRoot([]string{"--machine", "config", "show"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shown map[string]any
+	if err := json.Unmarshal(showOut, &shown); err != nil {
+		t.Fatal(err)
+	}
+	if shown["base_url"] == nil || shown["data"].(map[string]any)["base_url"] == nil {
+		t.Fatalf("config show compatibility envelope mismatch: %#v", shown)
+	}
+	rateOut, err := executeTestRoot([]string{"--machine", "rate-limit", "status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rate map[string]any
+	if err := json.Unmarshal(rateOut, &rate); err != nil {
+		t.Fatal(err)
+	}
+	if rate["rate_limit_per_minute"] != float64(250) || rate["data"].(map[string]any)["rate_limit_per_minute"] != float64(250) {
+		t.Fatalf("rate status compatibility envelope mismatch: %#v", rate)
+	}
+}
+
+func TestChannelAllAggregatesPartialResults(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvAccessToken, "test-token")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("OpenChannelId") == "bad-channel" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": -1, "msg": "bad channel", "data": []any{}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []map[string]any{{"id": 1}, {"id": 2}}})
+	}))
+	defer server.Close()
+	if err := core.SaveConfig(&core.Config{BaseURL: server.URL, RateLimit: 10000, Channels: map[string]string{"good": "good-channel", "bad": "bad-channel"}}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := executeTestRoot([]string{"--machine", "--channel", "all", "+goods", "--modified-since", "100", "--modified-until", "200"})
+	if err != nil {
+		t.Fatalf("partial batch should preserve successful data: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatal(err)
+	}
+	meta := got["meta"].(map[string]any)
+	data := got["data"].(map[string]any)
+	channels := data["channels"].([]any)
+	if got["ok"] != true || meta["partial"] != true || meta["channels_total"] != float64(2) || meta["channels_succeeded"] != float64(1) || meta["channels_failed"] != float64(1) || meta["rows"] != float64(2) || len(channels) != 2 {
+		t.Fatalf("partial channel aggregate mismatch: %#v", got)
+	}
+	if rowCount(data) != 2 {
+		t.Fatalf("channel aggregate row count=%d want 2", rowCount(data))
+	}
+}
+
+func TestChannelAllFailsWhenEveryChannelFails(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvAccessToken, "test-token")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": -1, "msg": "bad channel", "data": []any{}})
+	}))
+	defer server.Close()
+	if err := core.SaveConfig(&core.Config{BaseURL: server.URL, RateLimit: 10000, Channels: map[string]string{"one": "bad-one", "two": "bad-two"}}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := executeTestRoot([]string{"--machine", "--channel", "all", "+goods", "--modified-since", "100", "--modified-until", "200"})
+	if err == nil || exitCode(err) != 1 || errorSubtype(err) != internalerrs.ChannelBatchFailed {
+		t.Fatalf("all-failed batch should return CHANNEL_BATCH_FAILED: %v", err)
+	}
+	globals = globalOptions{machine: true, format: "json"}
+	var rendered bytes.Buffer
+	writeError(&rendered, err, exitCode(err))
+	var got map[string]any
+	if unmarshalErr := json.Unmarshal(rendered.Bytes(), &got); unmarshalErr != nil {
+		t.Fatal(unmarshalErr)
+	}
+	meta := got["meta"].(map[string]any)
+	data := got["data"].(map[string]any)
+	if got["ok"] != false || got["error_code"] != internalerrs.ChannelBatchFailed || meta["channels_failed"] != float64(2) || len(data["channels"].([]any)) != 2 {
+		t.Fatalf("all-failed batch envelope mismatch: %#v", got)
 	}
 }
 

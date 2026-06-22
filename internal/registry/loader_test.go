@@ -83,6 +83,24 @@ func TestLoadRegistry(t *testing.T) {
 			t.Fatalf("%s missing goods_id parameter", ref)
 		}
 	}
+	adsCampaigns, ok := r.Find("ads.advertise-campaign")
+	if !ok {
+		t.Fatal("missing ads.advertise-campaign")
+	}
+	required := map[string]bool{}
+	for _, param := range adsCampaigns.Params {
+		if param.Required {
+			required[param.Name] = true
+		}
+		if param.Name == "type" && (len(param.Enum) != 3 || int(param.Enum[0].(float64)) != 1 || int(param.Enum[2].(float64)) != 3) {
+			t.Fatalf("unexpected campaign type enum: %#v", param.Enum)
+		}
+	}
+	for _, name := range []string{"start_modified_time", "end_modified_time", "type"} {
+		if !required[name] {
+			t.Fatalf("ads.advertise-campaign must require %s", name)
+		}
+	}
 }
 
 func TestRegistryOverrideInstallLoadAndReset(t *testing.T) {

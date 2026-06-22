@@ -44,7 +44,7 @@
 | fba | `cbi fba storage-fee` | GET | `/v1/open_finance/get_amazon_finance_storage_fee_report_list` | - | `--channel` | read | page_rows+modified_time_window | 获取FBA仓储费用 |
 | fba | `cbi fba sync-shipment` | POST | `/v1/open_fba/sync_shipment` | `multipart/form-data` | `--channel`, `--shipment-ids` | sync_trigger | none | 同步FBA货件 |
 | ads | `cbi ads advertise` | GET | `/v1/open_cpc/advertise` | - | `--channel` | read | page_rows+modified_time_window | 广告 |
-| ads | `cbi ads advertise-campaign` | GET | `/v1/open_cpc/advertise_campaign` | - | `--channel` | read | page_rows+modified_time_window | 广告活动 |
+| ads | `cbi ads advertise-campaign` | GET | `/v1/open_cpc/advertise_campaign` | - | `--channel`, `--end-modified-time`, `--start-modified-time`, `--type` | read | page_rows+modified_time_window | 广告活动 |
 | ads | `cbi ads advertise-campaign-report` | GET | `/v1/open_cpc/advertise_campaign_report` | - | `--channel`, `--report-date` | read | page_rows+report_date | 广告活动报告 |
 | ads | `cbi ads advertise-expression` | GET | `/v1/open_cpc/advertise_expression` | - | `--channel` | read | page_rows+modified_time_window | 广告表达式 |
 | ads | `cbi ads advertise-group` | GET | `/v1/open_cpc/advertise_group` | - | `--channel` | read | page_rows+modified_time_window | 广告组 |

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "source": "https://doc.captainbi.com/openapi.json",
   "services": [
     {
@@ -11083,7 +11083,7 @@
               "flag": "end-modified-time",
               "location": "query",
               "type": "integer",
-              "required": false,
+              "required": true,
               "description": "结束修改时间 (时间戳)",
               "format": "unix_seconds"
             },
@@ -11115,7 +11115,7 @@
               "flag": "start-modified-time",
               "location": "query",
               "type": "integer",
-              "required": false,
+              "required": true,
               "description": "开始修改时间 (时间戳)",
               "format": "unix_seconds"
             },
@@ -11124,9 +11124,14 @@
               "flag": "type",
               "location": "query",
               "type": "integer",
-              "required": false,
+              "required": true,
               "description": "广告类型  1商品推广  2品牌推广 3展示推广",
-              "format": "int"
+              "format": "int",
+              "enum": [
+                1,
+                2,
+                3
+              ]
             }
           ],
           "pagination": {

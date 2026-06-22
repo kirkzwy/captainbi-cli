@@ -4,7 +4,7 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 
 ## 当前状态
 
-项目目前处于 Agent-ready 可测试阶段：
+项目目前处于 Agent-ready 日常使用阶段：
 
 - Go + Cobra 单二进制 CLI。
 - 使用 `OpenAPI -> Registry 元数据 -> 业务域命令` 的生成架构。
@@ -31,7 +31,7 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 
 ```bash
 # 当前内部/私有项目阶段优先使用 GitHub Release npm tarball 安装
-npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz
+npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.1/captainbi-cli-0.3.1.tgz
 cbi --version
 cbi doctor local --machine --format json
 
@@ -75,7 +75,7 @@ export NODE_USE_ENV_PROXY=1
 如果 `npm install github:...` 在特定环境仍卡住，可直接下载 GitHub Release 二进制：
 
 ```bash
-curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli_0.3.0_darwin_arm64.tar.gz
+curl -L -o cbi.tar.gz https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.1/captainbi-cli_0.3.1_darwin_arm64.tar.gz
 tar -xzf cbi.tar.gz
 ./cbi --version
 ```
@@ -101,6 +101,7 @@ cbi +orders --channel main --start 1781424057 --end 1781510457
 cbi +goods --channel main --modified-since 1781424057 --modified-until 1781510457
 cbi +finance-daily --channel main --date 20260615
 cbi +inventory --channel main --modified-since 1781424057 --modified-until 1781510457
+cbi +ads-campaigns --channel main --modified-since 1781424057 --modified-until 1781510457 --type 1 --summary
 cbi +ads-campaign-report --channel main --date 20260615 --summary
 cbi +reviews --channel main --summary
 cbi +store-transactions --channel main --start 20260601 --end 20260615
@@ -243,6 +244,7 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 可用 `cbi config rate-limit <每分钟请求数>` 持久化其他套餐限额；`--rate-limit` 和 `CAPTAINBI_RATE_LIMIT` 仍可作为单进程覆盖。
 
 - 默认使用 `--machine --format json`。
+- 控制类命令在机器 JSON 模式下同时提供 `ok/data/meta` 和 v0.x 兼容顶层字段；tool schema 等生成物保持裸输出。
 - 也可以设置 `CBI_AGENT=1`，让错误输出默认进入机器友好 JSON。
 - 大数据任务先用 `--summary` 判断规模，再用 `--output-file` 保存完整数据。
 - 店铺级接口优先使用 `--channel <alias>`，不要在日志中输出原始 OpenChannelId。
@@ -252,6 +254,8 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 - 翻页时读取 `meta.has_more` 和 `next_window/next_page/next_offset`，并原样传给对应 `--resume-*` 参数。
 - `page_rows` 分页不强依赖 CaptainBI 返回总数字段；以 `len(data) < rows` 作为主要结束条件。
 - `--page-all` 会把修改时间跨度拆成不重叠的 31 天窗口；报表接口可用 `--range-start/--range-end` 按日或按月批量获取。
+- 不带 `--page-all` 且修改时间跨度超过接口窗口限制时，CLI 会在本地拒绝并提示加上 `--page-all`。
+- `--channel all` 请读取 `channels_total/channels_succeeded/channels_failed`、汇总 `rows` 和 `partial`；全部店铺失败时返回非零退出码与 `CHANNEL_BATCH_FAILED`。
 
 ## Agent 写入流程
 
@@ -319,4 +323,4 @@ go build -o bin/cbi .
 
 - `--page-all` 支持页内分页、31 天修改时间拆窗、日报/月报批量，并支持窗口/页/页内偏移断点续拉。
 - 简单 form-data body 字段已生成独立 flags；数组/对象 body 使用 `--data`、stdin 或文件输入。
-- npm registry 暂不作为当前主路径；Agent 测试阶段使用 GitHub Release npm tarball：`npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.0/captainbi-cli-0.3.0.tgz`。
+- npm registry 暂不作为当前主路径；Agent 使用 GitHub Release npm tarball：`npm install -g https://github.com/kirkzwy/captainbi-cli/releases/download/v0.3.1/captainbi-cli-0.3.1.tgz`。
