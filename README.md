@@ -9,7 +9,7 @@ This repository is an Agent-ready CaptainBI CLI:
 
 - Go + Cobra single binary.
 - OpenAPI -> Registry metadata -> generated service commands.
-- Built-in token caching, OAuth `scope=all`, redaction, 20 req/min rate limiting and 429 retry.
+- Built-in token caching, OAuth `scope=all`, redaction, 250 req/min rate limiting and 429 retry.
 - Generic `api`, generated domain commands, shortcuts, schema and doctor commands.
 - Real read-only smoke has passed for auth, sites, shops, goods, orders, finance, ads, FBA and reviews.
 - Registry preserves all 65 official response schemas and 36 documented request bodies. Real contract tests encode the 28 GET body fields as query parameters and the 8 POST bodies as multipart.
@@ -105,7 +105,7 @@ cbi tools export --format openai
 | `CAPTAINBI_CLIENT_SECRET` | client_secret, preferred for CI or one-off runs |
 | `CAPTAINBI_BASE_URL` | API base URL, defaults to `https://openapi.captainbi.com` |
 | `CAPTAINBI_OPEN_CHANNEL_ID` | default OpenChannelId |
-| `CAPTAINBI_RATE_LIMIT` | requests per minute, defaults to 20 |
+| `CAPTAINBI_RATE_LIMIT` | requests per minute, defaults to 250 for the current paid plan |
 | `CAPTAINBI_ACCESS_TOKEN` | inject an existing access token and skip token retrieval |
 | `CAPTAINBI_CONFIG_DIR` | private writable directory for config, token cache, locks and write previews |
 | `CAPTAINBI_REGISTRY_FILE` | explicit compatible Registry metadata override; normally use `cbi registry update` |
@@ -125,6 +125,8 @@ cbi tools export --format openai
 - `--params-file`, `--data-file` and `--channel-file` only read relative regular files inside the current working directory. Pipe absolute-path content through stdin.
 
 ## Agent Usage
+
+Persist another account-plan limit with `cbi config rate-limit <requests-per-minute>`; `--rate-limit` and `CAPTAINBI_RATE_LIMIT` remain per-process overrides.
 
 - Use `--machine --format json` for structured output.
 - Use `CBI_AGENT=1` when the host should receive machine-friendly errors by default.

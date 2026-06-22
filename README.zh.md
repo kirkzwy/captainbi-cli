@@ -9,7 +9,7 @@ CaptainBI OpenAPI 命令行客户端。主命令是 `cbi`，同时保留 `captai
 - Go + Cobra 单二进制 CLI。
 - 使用 `OpenAPI -> Registry 元数据 -> 业务域命令` 的生成架构。
 - 已接入 CaptainBI OpenAPI 当前 65 个接口元数据。
-- 内置 token 缓存、`scope=all` token 请求、敏感信息脱敏、20 次/分钟限流和 429 退避重试。
+- 内置 token 缓存、`scope=all` token 请求、敏感信息脱敏、250 次/分钟限流和 429 退避重试。
 - 已完成真实只读 smoke：认证、站点、店铺、商品、订单、财务、广告、FBA、Review。
 - 已提供通用 `api`、业务域命令、快捷命令、`schema` 和 `doctor` 命令。
 - 已具备 GitHub Release / npm wrapper / Agent Skills 骨架；当前阶段优先走 GitHub 安装，不依赖 npm registry 发布。
@@ -185,7 +185,7 @@ cbi schema goods.list --jq '.params'
 | `CAPTAINBI_CLIENT_SECRET` | CaptainBI client_secret，适合 CI 或一次性运行 |
 | `CAPTAINBI_BASE_URL` | API 域名，默认 `https://openapi.captainbi.com` |
 | `CAPTAINBI_OPEN_CHANNEL_ID` | 默认店铺密钥 |
-| `CAPTAINBI_RATE_LIMIT` | 请求限流，默认 20 次/分钟 |
+| `CAPTAINBI_RATE_LIMIT` | 请求限流，当前付费套餐默认 250 次/分钟 |
 | `CAPTAINBI_ACCESS_TOKEN` | 直接注入已有 access token，跳过 token 获取 |
 | `CAPTAINBI_CONFIG_DIR` | 配置、token、锁和写入预览使用的私有可写目录 |
 | `CAPTAINBI_REGISTRY_FILE` | 显式指定兼容 Registry metadata；日常优先使用 `cbi registry update` |
@@ -239,6 +239,8 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 错误契约和真实行为记录见 `docs/contract-notes.md`。
 
 ## Agent 使用建议
+
+可用 `cbi config rate-limit <每分钟请求数>` 持久化其他套餐限额；`--rate-limit` 和 `CAPTAINBI_RATE_LIMIT` 仍可作为单进程覆盖。
 
 - 默认使用 `--machine --format json`。
 - 也可以设置 `CBI_AGENT=1`，让错误输出默认进入机器友好 JSON。

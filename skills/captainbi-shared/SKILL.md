@@ -58,6 +58,6 @@ Do not use CaptainBI for Amazon SP-API-only tasks, logistics files, Feishu-only 
 
 ## Rate Limits
 
-- Default local limit is 20 req/min.
+- Default local limit is 250 req/min for the current paid plan; persist another plan with `cbi config rate-limit <n>`.
 - Inspect local state: `cbi rate-limit status --machine`.
 - If `retryable=true`, wait according to `retry_after_ms` when present.

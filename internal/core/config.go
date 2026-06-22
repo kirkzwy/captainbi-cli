@@ -19,7 +19,7 @@ import (
 const (
 	AppName        = "captainbi"
 	DefaultBaseURL = "https://openapi.captainbi.com"
-	DefaultRate    = 20
+	DefaultRate    = 250
 
 	EnvClientID       = "CAPTAINBI_CLIENT_ID"
 	EnvClientSecret   = "CAPTAINBI_CLIENT_SECRET"

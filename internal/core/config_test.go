@@ -40,7 +40,7 @@ func TestConfigDirExplicitOverride(t *testing.T) {
 
 func TestSaveConfigAtomicRoundTrip(t *testing.T) {
 	t.Setenv(EnvConfigDir, t.TempDir())
-	want := &Config{ClientID: "client", BaseURL: "https://example.test", RateLimit: 20, Channels: map[string]string{"main": "channel"}}
+	want := &Config{ClientID: "client", BaseURL: "https://example.test", RateLimit: 250, Channels: map[string]string{"main": "channel"}}
 	if err := SaveConfig(want); err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +54,18 @@ func TestSaveConfigAtomicRoundTrip(t *testing.T) {
 	matches, err := filepath.Glob(filepath.Join(os.Getenv(EnvConfigDir), ".config-*.tmp"))
 	if err != nil || len(matches) != 0 {
 		t.Fatalf("temporary config files remain: %v %v", matches, err)
+	}
+}
+
+func TestLoadConfigUsesPaidPlanDefaultRate(t *testing.T) {
+	t.Setenv(EnvConfigDir, t.TempDir())
+	t.Setenv(EnvRateLimit, "")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RateLimit != 250 {
+		t.Fatalf("default rate limit=%d want 250", cfg.RateLimit)
 	}
 }
 

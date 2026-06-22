@@ -124,7 +124,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&globals.openChannelID, "open-channel-id", "", "CaptainBI OpenChannelId; can also use CAPTAINBI_OPEN_CHANNEL_ID")
 	cmd.PersistentFlags().StringVar(&globals.channel, "channel", "", "channel alias from config; use all to run configured channel set")
 	cmd.PersistentFlags().StringVar(&globals.channelFile, "channel-file", "", "JSON file containing channel aliases or OpenChannelId values")
-	cmd.PersistentFlags().IntVar(&globals.rateLimit, "rate-limit", 0, "requests per minute; default 20 or CAPTAINBI_RATE_LIMIT")
+	cmd.PersistentFlags().IntVar(&globals.rateLimit, "rate-limit", 0, "requests per minute; default 250 or CAPTAINBI_RATE_LIMIT")
 	cmd.PersistentFlags().StringVar(&globals.outputFile, "output-file", "", "write command data output to file instead of stdout")
 	cmd.PersistentFlags().IntVar(&globals.limit, "limit", 0, "limit rows written to stdout or output file")
 	cmd.PersistentFlags().BoolVar(&globals.summary, "summary", false, "write a compact summary instead of full rows")
@@ -231,6 +231,26 @@ func newConfigCmd() *cobra.Command {
 	cmd.AddCommand(initCmd)
 	cmd.AddCommand(newChannelsCmd())
 	cmd.AddCommand(newWriteAllowlistCmd())
+	cmd.AddCommand(&cobra.Command{
+		Use:   "rate-limit <requests-per-minute>",
+		Short: "Persist the CaptainBI request limit for this machine",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			value, err := strconv.Atoi(args[0])
+			if err != nil || value <= 0 {
+				return typedH("business", "rate limit must be a positive integer", "run cbi config rate-limit 250 or set CAPTAINBI_RATE_LIMIT")
+			}
+			cfg, err := core.LoadConfig()
+			if err != nil {
+				return err
+			}
+			cfg.RateLimit = value
+			if err := core.SaveConfig(cfg); err != nil {
+				return err
+			}
+			return writeValue(cmd, map[string]any{"ok": true, "rate_limit_per_minute": value}, nil, "")
+		},
+	})
 	showCmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show non-sensitive configuration",

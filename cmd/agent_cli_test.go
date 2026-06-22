@@ -444,6 +444,24 @@ func TestWriteAllowlistConfigCommands(t *testing.T) {
 	}
 }
 
+func TestConfigRateLimitCommand(t *testing.T) {
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvRateLimit, "")
+	if _, err := executeTestRoot([]string{"--machine", "config", "rate-limit", "250"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := core.LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RateLimit != 250 {
+		t.Fatalf("rate limit=%d want 250", cfg.RateLimit)
+	}
+	if _, err := executeTestRoot([]string{"--machine", "config", "rate-limit", "invalid"}); err == nil || errorSubtype(err) != internalerrs.ValidationBadParam {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
 func TestAgentWriteSafeDoesNotAutoApprove(t *testing.T) {
 	t.Setenv("CAPTAINBI_CONFIG_DIR", t.TempDir())
 	t.Setenv("CBI_AGENT", "1")
