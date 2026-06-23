@@ -63,7 +63,7 @@ export GITHUB_TOKEN='<github_token>'
 export CAPTAINBI_CLI_GITHUB_TOKEN='<github_token>'
 ```
 
-需要代理的网络环境，安装前显式配置：
+如需使用代理，可参考以下配置，并结合本地代理网络和端口进行调整：
 
 ```bash
 export HTTP_PROXY=http://127.0.0.1:7890

@@ -46,7 +46,7 @@ export GITHUB_TOKEN='<github_token>'
 export CAPTAINBI_CLI_GITHUB_TOKEN='<github_token>'
 ```
 
-For proxy-based networks:
+If your network requires a proxy, use the following configuration as a reference and replace the proxy host and port with your local proxy settings:
 
 ```bash
 export HTTP_PROXY=http://127.0.0.1:7890
