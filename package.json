@@ -25,5 +25,8 @@
     "README.zh.md",
     "LICENSE"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@youmind-ai/cli": "^0.0.7"
+  }
 }
