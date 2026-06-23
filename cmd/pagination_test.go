@@ -3,10 +3,12 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +17,105 @@ import (
 	internalerrs "github.com/kirkzwy/captainbi-cli/internal/errs"
 	"github.com/kirkzwy/captainbi-cli/internal/registry"
 )
+
+func TestExecuteRequestStreamsFirstPageBeforeSecondCompletes(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	releaseSecond := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		if page == 2 {
+			<-releaseSecond
+		}
+		data := []any{}
+		if page == 1 {
+			data = append(data, map[string]any{"id": 1})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": data})
+	}))
+	defer server.Close()
+	c := newTestClient(server.URL)
+	firstRow := make(chan struct{}, 1)
+	done := make(chan struct {
+		resp map[string]any
+		err  error
+	}, 1)
+	go func() {
+		resp, err := executeRequestWithSink(context.Background(), c, pageRowsMethod(), client.Request{Method: "GET", Path: "/items", Query: map[string]string{"rows": "1"}}, requestOptions{pageAll: true, pageDelay: time.Millisecond}, func(rows []any) error {
+			if len(rows) > 0 {
+				firstRow <- struct{}{}
+			}
+			return nil
+		})
+		done <- struct {
+			resp map[string]any
+			err  error
+		}{resp: resp, err: err}
+	}()
+	select {
+	case <-firstRow:
+	case <-time.After(time.Second):
+		t.Fatal("first page was not streamed before the next page")
+	}
+	select {
+	case result := <-done:
+		t.Fatalf("request completed before blocked second page: resp=%#v err=%v", result.resp, result.err)
+	default:
+	}
+	close(releaseSecond)
+	select {
+	case result := <-done:
+		if result.err != nil || intFrom(result.resp["fetched_rows"]) != 1 || intFrom(result.resp["pages_fetched"]) != 2 {
+			t.Fatalf("stream result = %#v err=%v", result.resp, result.err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stream did not finish after second page was released")
+	}
+}
+
+func TestExecuteRequestStopsAfterStreamWriteError(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []any{map[string]any{"id": 1}}})
+	}))
+	defer server.Close()
+	c := newTestClient(server.URL)
+	want := errors.New("stream closed")
+	_, err := executeRequestWithSink(context.Background(), c, pageRowsMethod(), client.Request{Method: "GET", Path: "/items", Query: map[string]string{"rows": "1"}}, requestOptions{pageAll: true, pageDelay: time.Millisecond}, func(rows []any) error {
+		return want
+	})
+	if !errors.Is(err, want) {
+		t.Fatalf("stream error = %v, want %v", err, want)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("stream write failure made %d requests", calls.Load())
+	}
+}
+
+func TestExecuteRequestStreamKeepsRowsAndResumeCursorOnLaterFailure(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		if page == 2 {
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": -1, "msg": "page failed", "data": []any{}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []any{map[string]any{"id": 1}}})
+	}))
+	defer server.Close()
+	written := []any{}
+	resp, err := executeRequestWithSink(context.Background(), newTestClient(server.URL), pageRowsMethod(), client.Request{Method: "GET", Path: "/items", Query: map[string]string{"rows": "1"}}, requestOptions{pageAll: true, pageDelay: time.Millisecond}, func(rows []any) error {
+		written = append(written, rows...)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(written) != 1 || resp["partial"] != true || resp["has_more"] != true || intFrom(resp["failed_at_page"]) != 2 || intFrom(resp["next_page"]) != 2 {
+		t.Fatalf("stream partial result written=%#v resp=%#v", written, resp)
+	}
+}
 
 func TestExecuteRequestPageRowsWithoutTotalField(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -295,4 +396,8 @@ func pageRowsMethod() registry.Method {
 		Pagination: registry.Pagination{Type: "page_rows", TotalField: "max_result"},
 		RiskLevel:  "read",
 	}
+}
+
+func newTestClient(baseURL string) *client.Client {
+	return client.New(&core.Config{BaseURL: baseURL, RateLimit: 10000}, func(context.Context, bool) (string, error) { return "token", nil })
 }

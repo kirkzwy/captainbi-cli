@@ -26,7 +26,7 @@ import (
 	"github.com/kirkzwy/captainbi-cli/internal/security"
 )
 
-var version = "0.3.1-dev"
+var version = "0.3.3-dev"
 
 type globalOptions struct {
 	format        string
@@ -118,8 +118,26 @@ func NewRootCmd() *cobra.Command {
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.CommandPath() == "cbi tools export" {
+				return nil
+			}
+			if strings.EqualFold(globals.format, "openai-tool") {
+				if cmd.CommandPath() == "cbi schema" {
+					globals.format = "openai-tool"
+					return nil
+				}
+				return internalerrs.New("business", internalerrs.ValidationBadParam, "output format openai-tool is only supported by cbi schema", "use json, ndjson, table, or csv for command data")
+			}
+			format, ok := outfmt.ParseFormat(globals.format)
+			if !ok {
+				return internalerrs.New("business", internalerrs.ValidationBadParam, "unsupported output format: "+globals.format, "use json, ndjson, table, or csv")
+			}
+			globals.format = string(format)
+			return nil
+		},
 	}
-	cmd.PersistentFlags().StringVar(&globals.format, "format", "json", "output format: json|ndjson|table|csv")
+	cmd.PersistentFlags().StringVar(&globals.format, "format", "json", "data output format: json|ndjson|table|csv")
 	cmd.PersistentFlags().BoolVar(&globals.machine, "machine", false, "machine mode: pure structured output and semantic exit codes")
 	cmd.PersistentFlags().StringVar(&globals.openChannelID, "open-channel-id", "", "CaptainBI OpenChannelId; can also use CAPTAINBI_OPEN_CHANNEL_ID")
 	cmd.PersistentFlags().StringVar(&globals.channel, "channel", "", "channel alias from config; use all to run configured channel set")
@@ -555,6 +573,7 @@ func newSchemaCmd(reg *registry.Registry, regErr error) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "schema <domain.command>",
 		Short: "Show endpoint parameter schema",
+		Long:  "Show endpoint parameter schema. Use --format openai-tool to emit a raw OpenAI function tool artifact.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if regErr != nil {
@@ -564,7 +583,7 @@ func newSchemaCmd(reg *registry.Registry, regErr error) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("schema %q not found", args[0])
 			}
-			if globals.format == "openai-tool" {
+			if strings.EqualFold(globals.format, "openai-tool") {
 				return outfmt.Write(cmd.OutOrStdout(), openAIToolSchema(m), outfmt.Options{Format: "json", Machine: globals.machine, JQ: jq}, nil)
 			}
 			return writeControlValue(cmd, schemaView(m), outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, nil)
@@ -648,7 +667,7 @@ func newDoctorCmd(reg *registry.Registry, regErr error) *cobra.Command {
 				results = append(results, map[string]any{"path": m.FullPath, "ok": err == nil, "error": errString(err), "code": resp["code"]})
 				checked++
 			}
-			return outfmt.Write(cmd.OutOrStdout(), results, outfmt.Options{Format: globals.format, Machine: globals.machine}, nil)
+			return writeValue(cmd, results, nil, "")
 		},
 	}
 	contract.Flags().IntVar(&sample, "sample", 5, "max read-only endpoints to check")
@@ -983,6 +1002,10 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 		return err
 	}
 	c := client.New(cfg, func(ctx context.Context, force bool) (string, error) { return auth.GetToken(ctx, cfg, force) })
+	if shouldStreamNDJSON(m, opts, targets) {
+		req.OpenChannelID = targets[0].ID
+		return writeStreamingNDJSON(cmd, c, m, req, targets[0], opts)
+	}
 	if len(targets) > 1 {
 		results := []map[string]any{}
 		for _, target := range targets {
@@ -992,6 +1015,9 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 			writeAudit(m, target, err, opts.confirmHash)
 		}
 		aggregate := aggregateChannelResults(results)
+		if opts.pageAll && strings.EqualFold(globals.format, "ndjson") {
+			aggregate["streaming"] = false
+		}
 		if intFrom(aggregate["channels_succeeded"]) == 0 {
 			return &channelBatchError{
 				results: results,
@@ -1015,7 +1041,10 @@ func runRequest(cmd *cobra.Command, m registry.Method, req client.Request, opts 
 	if wait := c.LastRateLimitWait(); wait > 0 {
 		resp["rate_limit_wait_ms"] = wait.Milliseconds()
 	}
-	return writeValue(cmd, resp, m.TableColumns, opts.jq)
+	if opts.pageAll && strings.EqualFold(globals.format, "ndjson") {
+		resp["streaming"] = false
+	}
+	return writeValue(cmd, resp, outputColumns(m), opts.jq)
 }
 
 func writeAllowed(cfg *core.Config, m registry.Method) bool {

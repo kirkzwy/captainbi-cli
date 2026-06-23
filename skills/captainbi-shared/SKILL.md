@@ -43,6 +43,10 @@ Do not use CaptainBI for Amazon SP-API-only tasks, logistics files, Feishu-only 
 
 - Use `--machine --format json` for Agent calls.
 - For large data, first run `--summary`; then use `--output-file` for full data.
+- For CSV/table/NDJSON without `--output-file`, parse records from stdout and parse the final `ok/meta` JSON line from stderr. Never mix stderr diagnostics into the data stream.
+- `--format ndjson --page-all` streams only for a single read-only channel without `--jq`, `--summary`, or `--limit`; check `meta.streaming` instead of assuming.
+- CSV/table contain all fields; table values may be visually truncated. Use JSON/CSV/NDJSON for complete values.
+- Treat output files as sensitive. They use private permissions, but the Agent must still avoid copying buyer, order, finance, or credential data into logs and prompts.
 - On failure, parse `error_code`, `kind`, `hint`, `api_code`, `api_msg`, `request_id`, `retryable`.
 - For pagination, prefer `--page-all --max-records <n>`; resume with `--resume-from-page <page>`.
 

@@ -20,6 +20,12 @@ type requestBatch struct {
 }
 
 func executeRequest(ctx context.Context, c *client.Client, m registry.Method, req client.Request, opts requestOptions) (map[string]any, error) {
+	return executeRequestWithSink(ctx, c, m, req, opts, nil)
+}
+
+type pageSink func([]any) error
+
+func executeRequestWithSink(ctx context.Context, c *client.Client, m registry.Method, req client.Request, opts requestOptions, sink pageSink) (map[string]any, error) {
 	if !opts.pageAll {
 		if opts.rangeStart != "" || opts.rangeEnd != "" || opts.resumeWindow > 1 || opts.resumeOffset > 0 {
 			return nil, typedH("business", "range and resume options require --page-all", "add --page-all or remove the range/resume options")
@@ -72,6 +78,7 @@ func executeRequest(ctx context.Context, c *client.Client, m registry.Method, re
 	}
 
 	all := []any{}
+	fetchedRows := 0
 	var envelope map[string]any
 	pagesFetched, pagesFailed := 0, 0
 	windowsStarted, windowsCompleted := 0, 0
@@ -110,7 +117,7 @@ stop:
 				pagesFailed++
 				failedWindow, failedPage = batch.Index, page
 				partialError = err.Error()
-				if len(all) == 0 {
+				if fetchedRows == 0 {
 					return nil, err
 				}
 				hasMore, nextWindow, nextPage = true, batch.Index, page
@@ -123,7 +130,7 @@ stop:
 			data, _ := resp["data"].([]any)
 			if raw, ok := resp["data"]; ok && raw != nil && data == nil {
 				structureErr := typedH("business", "paginated response data must be an array", "check the endpoint response contract before using --page-all")
-				if len(all) == 0 {
+				if fetchedRows == 0 {
 					return nil, structureErr
 				}
 				pagesFailed++
@@ -142,18 +149,24 @@ stop:
 			}
 			available := data[offset:]
 			if opts.maxRecords > 0 {
-				remaining := opts.maxRecords - len(all)
+				remaining := opts.maxRecords - fetchedRows
 				if remaining <= 0 {
 					hasMore, nextWindow, nextPage, nextOffset = true, batch.Index, page, offset
 					break stop
 				}
 				if len(available) > remaining {
-					all = append(all, available[:remaining]...)
+					if err := emitPageRows(sink, &all, available[:remaining]); err != nil {
+						return nil, err
+					}
+					fetchedRows += remaining
 					hasMore, nextWindow, nextPage, nextOffset = true, batch.Index, page, offset+remaining
 					break stop
 				}
 			}
-			all = append(all, available...)
+			if err := emitPageRows(sink, &all, available); err != nil {
+				return nil, err
+			}
+			fetchedRows += len(available)
 
 			pageComplete := m.Pagination.Type != "page_rows" || len(data) < rows
 			if !pageComplete {
@@ -163,7 +176,7 @@ stop:
 			if pageComplete {
 				windowsCompleted++
 			}
-			if opts.maxRecords > 0 && len(all) >= opts.maxRecords {
+			if opts.maxRecords > 0 && fetchedRows >= opts.maxRecords {
 				if !pageComplete {
 					hasMore, nextWindow, nextPage = true, batch.Index, page+1
 				} else if batchIndex+1 < len(batches) {
@@ -183,7 +196,7 @@ stop:
 	}
 	envelope["data"] = all
 	envelope["page_all"] = true
-	envelope["fetched_rows"] = len(all)
+	envelope["fetched_rows"] = fetchedRows
 	envelope["pages_fetched"] = pagesFetched
 	envelope["pages_failed"] = pagesFailed
 	envelope["partial"] = pagesFailed > 0
@@ -208,6 +221,17 @@ stop:
 		envelope["partial_error"] = security.RedactString(partialError)
 	}
 	return envelope, nil
+}
+
+func emitPageRows(sink pageSink, collected *[]any, rows []any) error {
+	if sink != nil {
+		return sink(rows)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	*collected = append(*collected, rows...)
+	return nil
 }
 
 func validateSingleRequestRange(req client.Request, m registry.Method) error {

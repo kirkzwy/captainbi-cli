@@ -257,3 +257,14 @@ WorkBuddy v0.3.0 只读回归暴露的必要修复：
 - `tools export` 和 `schema --format openai-tool` 保持裸生成物，避免破坏 Agent tool loader。
 
 本轮按用户要求不重复 WorkBuddy P8-1~P8-6 真实写入，也不执行 429/100910 压力测试。
+
+## 2026-06-23 v0.3.3 多格式输出与 NDJSON 流式契约
+
+- 通用数据格式固定为 `json|ndjson|table|csv`；无效格式在执行命令和发送 HTTP 前返回 `VALIDATION_BAD_PARAM`。`openai-tool` 继续仅用于 `schema`，`tools export` 的 `openai|claude` 保持独立裸产物。
+- Agent 的 JSON 输出继续使用 `ok/data/meta`。CSV/table/NDJSON 在未使用 `--output-file` 时保持 stdout 为纯数据，并在 stderr 最后一行返回单个成功 meta JSON；verbose/debug 诊断只能出现在该行之前。
+- CSV/table 不再受旧的域级 `tableColumns` 限制而静默丢字段：实际响应字段全部输出，Registry 字段只控制优先顺序，嵌套值编码为紧凑 JSON。table 单元格按 Unicode 显示宽度对齐，超过 40 宽度时仅展示截断值。
+- `--output-file` 通过同目录私有临时文件写入并原子替换，权限为 `0600`；stdout 状态 envelope 保留 `partial/has_more/next_*/pages_*/windows_*/rate_limit_wait_ms`，不再只返回路径和行数。
+- 单店铺只读 `--format ndjson --page-all` 通过分页 page sink 逐页写出，不再等待所有数据聚合。`--jq`、`--summary`、`--limit` 和多店铺调用保留聚合路径，并用 `meta.streaming=false` 明示。
+- 流式 sink 写失败会立即停止后续请求；后续 API 页失败时保留已写记录，返回 `partial=true` 和续拉游标。输出文件路径只有在请求得到可用结果并成功关闭文件后才安装最终文件。
+- 本轮不增加 `pretty`，强化后的 `table` 继续承担终端展示；不从 OpenAPI 长 description 自动生成友好表头，避免破坏稳定字段名。
+- 使用本机真实凭证和专用 smoke alias 完成六域只读格式验证：goods CSV、orders table、finance JSON、FBA NDJSON page-all、ads CSV、reviews table 均成功；FBA 返回 `streaming=true`，六个临时输出文件权限均为 `0600`。业务数据仅写入临时目录并在验证后删除。

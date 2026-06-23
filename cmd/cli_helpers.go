@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -230,36 +231,135 @@ func writeValue(cmd *cobra.Command, value any, columns []string, jq string) erro
 	if globals.summary {
 		value = summarizeValue(value)
 	}
-	if globals.outputFile != "" {
-		f, err := os.Create(globals.outputFile)
+	format, _ := outfmt.ParseFormat(globals.format)
+	metaSource := value
+	writeJQ := jq
+	if jq != "" && (format != outfmt.FormatJSON || globals.outputFile != "") {
+		filtered, err := outfmt.ApplyJQ(value, jq)
 		if err != nil {
 			return err
 		}
-		if err := outfmt.Write(f, value, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, columns); err != nil {
-			_ = f.Close()
-			return err
-		}
-		if err := f.Close(); err != nil {
-			return err
-		}
-		view := map[string]any{
-			"ok":          true,
-			"output_file": globals.outputFile,
-			"rows":        rowCount(value),
-		}
-		if agentMode() {
-			return outfmt.Write(cmd.OutOrStdout(), successEnvelope(view), outfmt.Options{Format: "json", Machine: true}, nil)
-		}
-		return outfmt.Write(cmd.OutOrStdout(), view, outfmt.Options{Format: "json", Machine: globals.machine}, nil)
+		value = filtered
+		writeJQ = ""
 	}
-	if agentMode() && strings.EqualFold(globals.format, "json") {
+	meta := metaForValue(value)
+	copyPaginationMeta(meta, metaSource)
+	meta["format"] = string(format)
+	if globals.outputFile != "" {
+		output, err := newAtomicOutput(globals.outputFile)
+		if err != nil {
+			return err
+		}
+		if err := outfmt.Write(output.file, value, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: writeJQ}, columns); err != nil {
+			output.abort()
+			return err
+		}
+		if err := output.commit(); err != nil {
+			return err
+		}
+		meta["output_file"] = globals.outputFile
+		meta["rows"] = rowCount(value)
+		meta["count"] = rowCount(value)
+		return writeOutputFileStatus(cmd, string(format), rowCount(value), meta)
+	}
+	if agentMode() && format == outfmt.FormatJSON {
 		value = successEnvelope(value)
 	}
-	return outfmt.Write(cmd.OutOrStdout(), value, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: jq}, columns)
+	if err := outfmt.Write(cmd.OutOrStdout(), value, outfmt.Options{Format: globals.format, Machine: globals.machine, JQ: writeJQ}, columns); err != nil {
+		return err
+	}
+	if agentMode() && format != outfmt.FormatJSON {
+		return writeMachineMeta(cmd.ErrOrStderr(), meta)
+	}
+	return nil
+}
+
+func writeOutputFileStatus(cmd *cobra.Command, format string, rows int, meta map[string]any) error {
+	view := map[string]any{
+		"ok":          true,
+		"output_file": globals.outputFile,
+		"format":      format,
+		"rows":        rows,
+	}
+	if agentMode() {
+		return outfmt.Write(cmd.OutOrStdout(), successEnvelopeWithMeta(view, meta), outfmt.Options{Format: "json", Machine: true}, nil)
+	}
+	return outfmt.Write(cmd.OutOrStdout(), view, outfmt.Options{Format: "json", Machine: globals.machine}, nil)
+}
+
+func shouldStreamNDJSON(m registry.Method, opts requestOptions, targets []channelTarget) bool {
+	format, ok := outfmt.ParseFormat(globals.format)
+	return ok && format == outfmt.FormatNDJSON && opts.pageAll && opts.jq == "" && !globals.summary && globals.limit == 0 && len(targets) == 1 && m.RiskLevel == "read"
+}
+
+func writeStreamingNDJSON(cmd *cobra.Command, c *client.Client, m registry.Method, req client.Request, target channelTarget, opts requestOptions) error {
+	destination := cmd.OutOrStdout()
+	var output *atomicOutput
+	if globals.outputFile != "" {
+		var err error
+		output, err = newAtomicOutput(globals.outputFile)
+		if err != nil {
+			return err
+		}
+		destination = output.file
+	}
+	streamedPages := 0
+	sink := func(rows []any) error {
+		if err := outfmt.WriteNDJSON(destination, rows); err != nil {
+			return err
+		}
+		streamedPages++
+		if globals.verbose {
+			_, err := fmt.Fprintf(cmd.ErrOrStderr(), "stream page=%d rows=%d\n", streamedPages, len(rows))
+			return err
+		}
+		return nil
+	}
+	resp, err := executeRequestWithSink(cmd.Context(), c, m, req, opts, sink)
+	writeAudit(m, target, err, opts.confirmHash)
+	if err != nil {
+		if output != nil {
+			output.abort()
+		}
+		return err
+	}
+	if wait := c.LastRateLimitWait(); wait > 0 {
+		resp["rate_limit_wait_ms"] = wait.Milliseconds()
+	}
+	if globals.verbose || globals.debug {
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "request method=%s path=%s channel=%s rate_limit_wait_ms=%d streaming=true\n", req.Method, req.Path, security.RedactValue(req.OpenChannelID), c.LastRateLimitWait().Milliseconds()); err != nil {
+			if output != nil {
+				output.abort()
+			}
+			return err
+		}
+	}
+	resp["streaming"] = true
+	rows := intFrom(resp["fetched_rows"])
+	meta := metaForValue(resp)
+	meta["rows"] = rows
+	meta["count"] = rows
+	meta["format"] = string(outfmt.FormatNDJSON)
+	meta["streaming"] = true
+	if output != nil {
+		if err := output.commit(); err != nil {
+			return err
+		}
+		meta["output_file"] = globals.outputFile
+		return writeOutputFileStatus(cmd, string(outfmt.FormatNDJSON), rows, meta)
+	}
+	if agentMode() {
+		return writeMachineMeta(cmd.ErrOrStderr(), meta)
+	}
+	return nil
 }
 
 func writeControlValue(cmd *cobra.Command, value any, opts outfmt.Options, columns []string) error {
-	if agentMode() && strings.EqualFold(opts.Format, "json") {
+	if globals.outputFile != "" {
+		return writeValue(cmd, value, columns, opts.JQ)
+	}
+	format, _ := outfmt.ParseFormat(opts.Format)
+	if agentMode() && format == outfmt.FormatJSON {
 		envelope := successEnvelope(value)
 		if fields, ok := value.(map[string]any); ok {
 			if valueOK, exists := fields["ok"].(bool); exists {
@@ -276,7 +376,26 @@ func writeControlValue(cmd *cobra.Command, value any, opts outfmt.Options, colum
 		}
 		return outfmt.Write(cmd.OutOrStdout(), envelope, opts, columns)
 	}
-	return outfmt.Write(cmd.OutOrStdout(), value, opts, columns)
+	writeValue := value
+	writeOpts := opts
+	if opts.JQ != "" && format != outfmt.FormatJSON {
+		filtered, err := outfmt.ApplyJQ(value, opts.JQ)
+		if err != nil {
+			return err
+		}
+		writeValue = filtered
+		writeOpts.JQ = ""
+	}
+	if err := outfmt.Write(cmd.OutOrStdout(), writeValue, writeOpts, columns); err != nil {
+		return err
+	}
+	if agentMode() && format != outfmt.FormatJSON {
+		meta := metaForValue(writeValue)
+		copyPaginationMeta(meta, value)
+		meta["format"] = string(format)
+		return writeMachineMeta(cmd.ErrOrStderr(), meta)
+	}
+	return nil
 }
 
 func agentMode() bool {
@@ -284,7 +403,10 @@ func agentMode() bool {
 }
 
 func successEnvelope(value any) map[string]any {
-	meta := metaForValue(value)
+	return successEnvelopeWithMeta(value, metaForValue(value))
+}
+
+func successEnvelopeWithMeta(value any, meta map[string]any) map[string]any {
 	if _, ok := meta["hints"]; !ok {
 		meta["hints"] = []string{}
 	}
@@ -298,12 +420,31 @@ func successEnvelope(value any) map[string]any {
 	}
 }
 
+func writeMachineMeta(w io.Writer, meta map[string]any) error {
+	return json.NewEncoder(w).Encode(map[string]any{"ok": true, "meta": meta})
+}
+
 func metaForValue(value any) map[string]any {
 	meta := map[string]any{
-		"count":  rowCount(value),
-		"rows":   rowCount(value),
-		"hints":  hintsForValue(value),
-		"alerts": []string{},
+		"count":              rowCount(value),
+		"rows":               rowCount(value),
+		"hints":              hintsForValue(value),
+		"alerts":             []string{},
+		"format":             strings.ToLower(globals.format),
+		"streaming":          false,
+		"pages_fetched":      0,
+		"pages_failed":       0,
+		"partial":            false,
+		"has_more":           false,
+		"next_window":        nil,
+		"next_page":          nil,
+		"next_offset":        0,
+		"windows_total":      0,
+		"windows_started":    0,
+		"windows_completed":  0,
+		"rate_limit_wait_ms": 0,
+		"channel":            "",
+		"output_file":        "",
 	}
 	if globals.outputFile != "" {
 		meta["output_file"] = globals.outputFile
@@ -319,6 +460,10 @@ func metaForValue(value any) map[string]any {
 		for _, key := range paginationMetaKeys {
 			copyMetaKey(meta, m, key)
 		}
+		if fetched, ok := m["fetched_rows"]; ok {
+			meta["count"] = intFrom(fetched)
+			meta["rows"] = intFrom(fetched)
+		}
 		copyMetaKey(meta, m, "rate_limit_wait_ms")
 		copyMetaKey(meta, m, "channel")
 		if channels, ok := m["channels"].([]map[string]any); ok {
@@ -328,6 +473,60 @@ func metaForValue(value any) map[string]any {
 		}
 	}
 	return meta
+}
+
+func copyPaginationMeta(meta map[string]any, value any) {
+	fields, ok := value.(map[string]any)
+	if !ok {
+		return
+	}
+	for _, key := range paginationMetaKeys {
+		copyMetaKey(meta, fields, key)
+	}
+	for _, key := range []string{"rate_limit_wait_ms", "channel", "page_all", "streaming"} {
+		copyMetaKey(meta, fields, key)
+	}
+}
+
+type atomicOutput struct {
+	file   *os.File
+	temp   string
+	target string
+}
+
+func newAtomicOutput(target string) (*atomicOutput, error) {
+	directory := filepath.Dir(target)
+	file, err := os.CreateTemp(directory, "."+filepath.Base(target)+".tmp-*")
+	if err != nil {
+		return nil, err
+	}
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
+		return nil, err
+	}
+	return &atomicOutput{file: file, temp: file.Name(), target: target}, nil
+}
+
+func (output *atomicOutput) abort() {
+	_ = output.file.Close()
+	_ = os.Remove(output.temp)
+}
+
+func (output *atomicOutput) commit() error {
+	if err := output.file.Sync(); err != nil {
+		output.abort()
+		return err
+	}
+	if err := output.file.Close(); err != nil {
+		_ = os.Remove(output.temp)
+		return err
+	}
+	if err := replaceOutputFile(output.temp, output.target); err != nil {
+		_ = os.Remove(output.temp)
+		return err
+	}
+	return nil
 }
 
 func copyMetaKey(meta, src map[string]any, key string) {
@@ -421,6 +620,7 @@ func summarizeValue(value any) map[string]any {
 		copyMetaKey(out, m, "rate_limit_wait_ms")
 		copyMetaKey(out, m, "page_all")
 		copyMetaKey(out, m, "output_file")
+		copyMetaKey(out, m, "streaming")
 	}
 	return out
 }
@@ -430,8 +630,21 @@ func rowCount(value any) int {
 		if _, isChannels := m["channels"]; isChannels {
 			return intFrom(m["rows"])
 		}
+		if data, exists := m["data"]; exists {
+			return rowCount(data)
+		}
+		return 1
 	}
-	return len(rowsFromAny(value))
+	switch typed := value.(type) {
+	case []any:
+		return len(typed)
+	case []map[string]any:
+		return len(typed)
+	case nil:
+		return 0
+	default:
+		return 1
+	}
 }
 
 func rowsFromAny(value any) []map[string]any {
@@ -454,6 +667,41 @@ func rowsFromAny(value any) []map[string]any {
 	default:
 		return nil
 	}
+}
+
+func outputColumns(m registry.Method) []string {
+	properties := responseDataProperties(m.ResponseSchema)
+	if len(properties) == 0 {
+		return append([]string(nil), m.TableColumns...)
+	}
+	columns := make([]string, 0, len(properties))
+	added := map[string]bool{}
+	for _, column := range m.TableColumns {
+		if _, ok := properties[column]; ok && !added[column] {
+			columns = append(columns, column)
+			added[column] = true
+		}
+	}
+	remaining := make([]string, 0, len(properties))
+	for column := range properties {
+		if !added[column] {
+			remaining = append(remaining, column)
+		}
+	}
+	sort.Strings(remaining)
+	return append(columns, remaining...)
+}
+
+func responseDataProperties(schema any) map[string]any {
+	root, _ := schema.(map[string]any)
+	properties, _ := root["properties"].(map[string]any)
+	data, _ := properties["data"].(map[string]any)
+	if items, ok := data["items"].(map[string]any); ok {
+		itemProperties, _ := items["properties"].(map[string]any)
+		return itemProperties
+	}
+	dataProperties, _ := data["properties"].(map[string]any)
+	return dataProperties
 }
 
 func copyMap(in map[string]any) map[string]any {

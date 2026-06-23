@@ -130,9 +130,15 @@ cbi tools export --format openai
 Persist another account-plan limit with `cbi config rate-limit <requests-per-minute>`; `--rate-limit` and `CAPTAINBI_RATE_LIMIT` remain per-process overrides.
 
 - Use `--machine --format json` for structured output.
+- `json` is the Agent control format; `ndjson` is for record streams, `csv` is for complete tabular exports, and `table` is for terminal inspection.
+- In Agent mode without `--output-file`, CSV/table/NDJSON keep stdout as pure data and write one final `{"ok":true,"meta":...}` status line to stderr. Diagnostics, when enabled, appear before that final line.
+- CSV and table include every response field. Table cells longer than 40 display columns are shortened with an ellipsis; use JSON, CSV, or NDJSON when complete values are required.
+- `--format ndjson --page-all` streams each page immediately for one read-only channel. `--jq`, `--summary`, `--limit`, and multi-channel calls use the aggregate fallback and report `meta.streaming=false`.
 - Control commands expose `ok/data/meta` in machine JSON while retaining their legacy top-level fields throughout v0.x. Generated tool artifacts remain unwrapped.
 - Use `CBI_AGENT=1` when the host should receive machine-friendly errors by default.
 - Use `--summary` before large pulls; use `--output-file` for full data.
+- With `--output-file`, the file contains only the requested format and stdout returns a JSON status envelope containing the path, format, row count, pagination cursors, and partial state. Files are created with private `0600` permissions on supported systems.
+- Full exports may contain order, buyer, finance, or advertising data. Keep output files in a private directory and do not attach them to prompts or logs unless required.
 - Page-all for `page_rows` endpoints stops on `len(data) < rows`; `max_result` is optional.
 - Read `meta.has_more` and the `next_window/next_page/next_offset` cursor to decide whether to continue; pass them back through the matching `--resume-*` flags.
 - `--page-all` automatically splits modified-time spans into non-overlapping 31-day windows. For report endpoints, use inclusive `--range-start/--range-end` in matching `YYYYMMDD` or `YYYYMM` format.

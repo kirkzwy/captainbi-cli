@@ -172,7 +172,7 @@ cbi schema goods.list --jq '.params'
 | `--resume-offset` | 从被 `--max-records` 截断的页内偏移继续 |
 | `--range-start` / `--range-end` | 按日 `YYYYMMDD` 或按月 `YYYYMM` 批量获取 report_date |
 | `--summary` | 只输出行数和字段列表，适合 Agent 探测数据规模 |
-| `--output-file` | 将完整结果写入文件，stdout 只返回文件路径和行数 |
+| `--output-file` | 将指定格式的数据写入私有文件，stdout 返回包含路径、格式、行数和分页状态的 JSON envelope |
 | `--channel` | 使用 `config channels` 中的店铺别名，也可用 `all` |
 | `--confirm` | 仅保留给交互式 TTY 的兼容确认；Agent 不使用 |
 | `--confirm-request` | 使用当前 dry-run 生成的精确请求 hash 批准 Agent 写入 |
@@ -244,9 +244,15 @@ CAPTAINBI_SMOKE_OPEN_CHANNEL_ID='<open_channel_id>' scripts/smoke/read_only.sh
 可用 `cbi config rate-limit <每分钟请求数>` 持久化其他套餐限额；`--rate-limit` 和 `CAPTAINBI_RATE_LIMIT` 仍可作为单进程覆盖。
 
 - 默认使用 `--machine --format json`。
+- `json` 用于 Agent 控制协议，`ndjson` 用于逐条记录流，`csv` 用于完整表格导出，`table` 用于终端查看。
+- Agent 未使用 `--output-file` 时，CSV/table/NDJSON 的 stdout 只包含纯数据，stderr 最后一行固定输出 `{"ok":true,"meta":...}`；开启诊断时，诊断行位于最终状态行之前。
+- CSV 和 table 默认包含响应中的全部字段。table 对超过 40 个终端显示宽度的单元格加省略号；需要完整值时使用 JSON、CSV 或 NDJSON。
+- 单店铺只读命令使用 `--format ndjson --page-all` 时逐页即时写出；同时使用 `--jq`、`--summary`、`--limit` 或多店铺时回退为聚合输出，并返回 `meta.streaming=false`。
 - 控制类命令在机器 JSON 模式下同时提供 `ok/data/meta` 和 v0.x 兼容顶层字段；tool schema 等生成物保持裸输出。
 - 也可以设置 `CBI_AGENT=1`，让错误输出默认进入机器友好 JSON。
 - 大数据任务先用 `--summary` 判断规模，再用 `--output-file` 保存完整数据。
+- 使用 `--output-file` 时，数据文件只包含指定格式，stdout 返回路径、格式、行数、分页游标和 partial 状态；支持的系统上文件权限固定为 `0600`。
+- 订单、买家、财务和广告导出可能包含敏感业务数据，应保存在私有目录，非必要不要放入 Prompt、日志或公开附件。
 - 店铺级接口优先使用 `--channel <alias>`，不要在日志中输出原始 OpenChannelId。
 - 成功输出读取 `ok/data/meta`；失败输出读取 `ok/error/meta`。
 - 失败时优先读取 `error.kind`、`error.subtype`、`error.hint`、`error.api_code`、`error.api_msg` 来决定是否重试或补参数。

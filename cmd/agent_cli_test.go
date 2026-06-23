@@ -2,15 +2,19 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/kirkzwy/captainbi-cli/internal/auth"
 	"github.com/kirkzwy/captainbi-cli/internal/client"
@@ -35,6 +39,20 @@ func TestSchemaOpenAIToolFormat(t *testing.T) {
 	}
 	if got["type"] != "function" {
 		t.Fatalf("expected openai function schema, got %#v", got["type"])
+	}
+}
+
+func TestSchemaHelpDocumentsOpenAIToolFormat(t *testing.T) {
+	globals = globalOptions{}
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetArgs([]string{"schema", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "--format openai-tool") {
+		t.Fatalf("schema help does not document openai-tool:\n%s", out.String())
 	}
 }
 
@@ -126,6 +144,248 @@ func TestMachineSuccessEnvelope(t *testing.T) {
 	meta := got["meta"].(map[string]any)
 	if meta["rows"] != float64(1) || meta["pages_fetched"] != float64(1) {
 		t.Fatalf("unexpected success meta: %#v", meta)
+	}
+	if meta["partial"] != false || meta["has_more"] != false || meta["streaming"] != false || meta["format"] != "json" {
+		t.Fatalf("missing stable meta defaults: %#v", meta)
+	}
+}
+
+func TestMachineNonJSONWritesPureDataAndFinalMeta(t *testing.T) {
+	root := NewRootCmd()
+	globals = globalOptions{machine: true, format: "csv"}
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	value := map[string]any{
+		"data":          []any{map[string]any{"id": 1, "extra": "kept"}},
+		"pages_fetched": 1,
+		"partial":       false,
+		"has_more":      true,
+		"next_page":     2,
+	}
+	if err := writeValue(root, value, []string{"id"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != "id,extra\n1,kept\n" {
+		t.Fatalf("stdout must contain pure full-field CSV: %q", stdout.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(stderr.Bytes(), &status); err != nil {
+		t.Fatalf("stderr must end with machine JSON: %v\n%s", err, stderr.String())
+	}
+	meta := status["meta"].(map[string]any)
+	if status["ok"] != true || meta["format"] != "csv" || meta["has_more"] != true || meta["next_page"] != float64(2) || meta["rows"] != float64(1) {
+		t.Fatalf("unexpected non-JSON status: %#v", status)
+	}
+}
+
+func TestMachineControlNonJSONWritesFinalMeta(t *testing.T) {
+	root := NewRootCmd()
+	globals = globalOptions{machine: true, format: "table"}
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	if err := writeControlValue(root, map[string]any{"status": "ok", "count": 2}, outfmt.Options{Format: "table", Machine: true}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "status") || !strings.Contains(stdout.String(), "ok") {
+		t.Fatalf("missing table data: %q", stdout.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(stderr.Bytes(), &status); err != nil || status["ok"] != true {
+		t.Fatalf("missing control metadata: %#v err=%v", status, err)
+	}
+}
+
+func TestOutputFileStatusKeepsPaginationMetaAndPrivateMode(t *testing.T) {
+	root := NewRootCmd()
+	path := filepath.Join(t.TempDir(), "goods.ndjson")
+	globals = globalOptions{machine: true, format: "ndjson", outputFile: path}
+	var stdout bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&bytes.Buffer{})
+	value := map[string]any{
+		"data":          []any{map[string]any{"id": 1}, map[string]any{"id": 2}},
+		"pages_fetched": 1,
+		"partial":       true,
+		"has_more":      true,
+		"next_page":     2,
+	}
+	if err := writeValue(root, value, []string{"id"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	// #nosec G304 -- path is created under t.TempDir for this test.
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contents) != "{\"id\":1}\n{\"id\":2}\n" {
+		t.Fatalf("output file = %q", contents)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("output mode = %o, want 600", info.Mode().Perm())
+		}
+	}
+	var status map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &status); err != nil {
+		t.Fatal(err)
+	}
+	data := status["data"].(map[string]any)
+	meta := status["meta"].(map[string]any)
+	if data["output_file"] != path || data["format"] != "ndjson" || meta["partial"] != true || meta["has_more"] != true || meta["next_page"] != float64(2) {
+		t.Fatalf("output status lost metadata: %#v", status)
+	}
+}
+
+func TestOutputFileRenderFailurePreservesExistingFile(t *testing.T) {
+	root := NewRootCmd()
+	path := filepath.Join(t.TempDir(), "existing.json")
+	if err := os.WriteFile(path, []byte("original\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	globals = globalOptions{machine: true, format: "json", outputFile: path}
+	err := writeValue(root, map[string]any{"data": []any{make(chan int)}}, nil, "")
+	if err == nil {
+		t.Fatal("unsupported value should fail rendering")
+	}
+	// #nosec G304 -- path is created under t.TempDir for this test.
+	contents, readErr := os.ReadFile(path)
+	if readErr != nil || string(contents) != "original\n" {
+		t.Fatalf("existing file changed after failed render: %q err=%v", contents, readErr)
+	}
+	matches, globErr := filepath.Glob(filepath.Join(filepath.Dir(path), ".existing.json.tmp-*"))
+	if globErr != nil || len(matches) != 0 {
+		t.Fatalf("temporary files remain: %#v err=%v", matches, globErr)
+	}
+}
+
+func TestStreamingNDJSONOutputFileAndStatus(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		data := []any{}
+		if page == 1 {
+			data = append(data, map[string]any{"id": 1})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": data})
+	}))
+	defer server.Close()
+	path := filepath.Join(t.TempDir(), "stream.ndjson")
+	root := NewRootCmd()
+	root.SetContext(context.Background())
+	globals = globalOptions{machine: true, format: "ndjson", outputFile: path}
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	c := newTestClient(server.URL)
+	err := writeStreamingNDJSON(root, c, pageRowsMethod(), client.Request{Method: "GET", Path: "/items", Query: map[string]string{"rows": "1"}}, channelTarget{Alias: "main", ID: "channel"}, requestOptions{pageAll: true, pageDelay: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// #nosec G304 -- path is created under t.TempDir for this test.
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contents) != "{\"id\":1}\n" || stderr.Len() != 0 {
+		t.Fatalf("stream output=%q stderr=%q", contents, stderr.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &status); err != nil {
+		t.Fatal(err)
+	}
+	meta := status["meta"].(map[string]any)
+	if meta["streaming"] != true || meta["rows"] != float64(1) || meta["pages_fetched"] != float64(2) || meta["output_file"] != path {
+		t.Fatalf("stream status = %#v", status)
+	}
+}
+
+func TestStreamingNDJSONVerboseStatusIsLastStderrLine(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		data := []any{}
+		if page == 1 {
+			data = append(data, map[string]any{"id": 1})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": data})
+	}))
+	defer server.Close()
+	root := NewRootCmd()
+	root.SetContext(context.Background())
+	globals = globalOptions{machine: true, format: "ndjson", verbose: true}
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	if err := writeStreamingNDJSON(root, newTestClient(server.URL), pageRowsMethod(), client.Request{Method: "GET", Path: "/items", Query: map[string]string{"rows": "1"}}, channelTarget{Alias: "main", ID: "channel"}, requestOptions{pageAll: true, pageDelay: time.Millisecond}); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+	if len(lines) < 3 || !strings.Contains(lines[0], "stream page=1 rows=1") || !strings.Contains(lines[len(lines)-2], "streaming=true") {
+		t.Fatalf("missing verbose diagnostic before status: %q", stderr.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &status); err != nil || status["ok"] != true {
+		t.Fatalf("last stderr line is not success status: %q err=%v", lines[len(lines)-1], err)
+	}
+}
+
+func TestNDJSONStreamingEligibilityFallsBackForTransformsAndChannels(t *testing.T) {
+	globals = globalOptions{format: "ndjson"}
+	method := pageRowsMethod()
+	base := requestOptions{pageAll: true}
+	if !shouldStreamNDJSON(method, base, []channelTarget{{Alias: "main"}}) {
+		t.Fatal("eligible NDJSON page-all request should stream")
+	}
+	for name, configure := range map[string]func(){
+		"jq":       func() { base.jq = ".data" },
+		"summary":  func() { globals.summary = true },
+		"limit":    func() { globals.limit = 1 },
+		"channels": func() {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			globals = globalOptions{format: "ndjson"}
+			base = requestOptions{pageAll: true}
+			configure()
+			targets := []channelTarget{{Alias: "main"}}
+			if name == "channels" {
+				targets = append(targets, channelTarget{Alias: "second"})
+			}
+			if shouldStreamNDJSON(method, base, targets) {
+				t.Fatalf("%s request should use aggregate fallback", name)
+			}
+		})
+	}
+}
+
+func TestInvalidFormatFailsBeforeHTTPRequest(t *testing.T) {
+	called := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "msg": "ok", "data": []any{}})
+	}))
+	defer server.Close()
+	t.Setenv(core.EnvConfigDir, t.TempDir())
+	t.Setenv(core.EnvAccessToken, "test-token")
+	t.Setenv(core.EnvBaseURL, server.URL)
+	_, err := executeTestRoot([]string{"--machine", "--format", "pretty", "+sites"})
+	if err == nil || errorSubtype(err) != internalerrs.ValidationBadParam {
+		t.Fatalf("invalid format error = %v", err)
+	}
+	if called != 0 {
+		t.Fatalf("invalid format sent %d HTTP requests", called)
+	}
+}
+
+func TestOpenAIToolFormatIsSchemaOnly(t *testing.T) {
+	_, err := executeTestRoot([]string{"--machine", "--format", "openai-tool", "+sites"})
+	if err == nil || errorSubtype(err) != internalerrs.ValidationBadParam {
+		t.Fatalf("openai-tool should fail outside schema: %v", err)
 	}
 }
 
