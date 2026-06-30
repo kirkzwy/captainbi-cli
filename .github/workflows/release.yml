@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to validate or republish assets for"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,10 +17,13 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.11"
@@ -27,7 +36,60 @@ jobs:
       - run: go run ./tools/gen-registry
       - run: git diff --exit-code
       - run: bash -n scripts/smoke/*.sh
+      - id: release_state
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          expected_assets=(
+            "captainbi-cli_${version}_darwin_amd64.tar.gz"
+            "captainbi-cli_${version}_darwin_arm64.tar.gz"
+            "captainbi-cli_${version}_linux_amd64.tar.gz"
+            "captainbi-cli_${version}_linux_arm64.tar.gz"
+            "captainbi-cli_${version}_windows_amd64.zip"
+            "captainbi-cli_${version}_windows_arm64.zip"
+            "checksums.txt"
+          )
+          if ! asset_names="$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+            echo "release_complete=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "release_exists=true" >> "$GITHUB_OUTPUT"
+          missing=0
+          for asset in "${expected_assets[@]}"; do
+            if ! grep -Fxq "$asset" <<<"$asset_names"; then
+              missing=1
+              break
+            fi
+          done
+          if [[ "$missing" -eq 0 ]]; then
+            echo "release_complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_complete=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Remove partial release assets before republishing
+        if: steps.release_state.outputs.release_exists == 'true' && steps.release_state.outputs.release_complete != 'true'
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          assets=(
+            "captainbi-cli_${version}_darwin_amd64.tar.gz"
+            "captainbi-cli_${version}_darwin_arm64.tar.gz"
+            "captainbi-cli_${version}_linux_amd64.tar.gz"
+            "captainbi-cli_${version}_linux_arm64.tar.gz"
+            "captainbi-cli_${version}_windows_amd64.zip"
+            "captainbi-cli_${version}_windows_arm64.zip"
+            "checksums.txt"
+          )
+          for asset in "${assets[@]}"; do
+            gh release delete-asset "${RELEASE_TAG}" "$asset" --yes || true
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: goreleaser/goreleaser-action@v6
+        if: steps.release_state.outputs.release_complete != 'true'
         with:
           distribution: goreleaser
           version: v2.16.0
@@ -39,7 +101,7 @@ jobs:
           node-version: "22"
       - run: npm pack --ignore-scripts
       - run: tar -tzf captainbi-cli-*.tgz | grep -q 'package/skills/captainbi-shared/SKILL.md'
-      - run: gh release upload "${GITHUB_REF_NAME}" captainbi-cli-*.tgz --clobber
+      - run: gh release upload "${RELEASE_TAG}" captainbi-cli-*.tgz --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm install --prefix /tmp/cbi-npm-smoke -g ./captainbi-cli-*.tgz
@@ -48,8 +110,8 @@ jobs:
       - run: /tmp/cbi-npm-smoke/bin/cbi --version
       - run: /tmp/cbi-npm-smoke/bin/cbi doctor local --machine
       - run: |
-          version="${GITHUB_REF_NAME#v}"
-          npm install --foreground-scripts --prefix /tmp/cbi-gh-smoke -g "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/captainbi-cli-${version}.tgz"
+          version="${RELEASE_TAG#v}"
+          npm install --foreground-scripts --prefix /tmp/cbi-gh-smoke -g "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/captainbi-cli-${version}.tgz"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: /tmp/cbi-gh-smoke/bin/cbi --version
